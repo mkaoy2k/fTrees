@@ -103,6 +103,8 @@ class RoleGateTests(unittest.TestCase):
         self.assertIn("center_popup", page7)
         self.assertIn('"direction": "UD"', page6)
         self.assertIn('"enabled": false', page6)
+        self.assertIn('"direction": "UD"', page7)
+        self.assertIn('"enabled": false', page7)
         self.assertNotIn("graphviz", page6.lower())
         self.assertNotIn("neato", page6)
 
@@ -135,6 +137,34 @@ class RoleGateTests(unittest.TestCase):
         self.assertIn('"direction": "UD"', html)
         self.assertIn('"enabled": false', html)
         self.assertNotIn("use_DOT", html)
+
+    def test_relationship_rows_follow_generation(self):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("show_related", ROOT / "pages" / "7_show_related.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        relationship = {
+            "center": {"id": 2, "name": "Ada <b>", "gen_order": 2},
+            "family_members": [
+                {"id": 1, "name": "Bob", "relation": "parent", "gen_order": 1},
+                {"id": 3, "name": 'Cy "C"', "relation": "child", "gen_order": "3"},
+                {"id": 4, "name": "Dee", "relation": "spouse"},
+                {"id": 5, "name": "Eve", "relation": "child", "gen_order": 0},
+            ],
+        }
+        graph = module.create_relationship_graph(relationship)
+        levels = {node["id"]: node["level"] for node in graph.nodes}
+        self.assertEqual(levels, {"2": 2, "1": 1, "3": 3, "4": 2, "5": 3})
+        titles = {node["id"]: node["title"] for node in graph.nodes}
+        self.assertEqual(titles["2"], "Center Member: Ada &lt;b&gt;")
+        self.assertNotIn("<b>", titles["2"])
+        self.assertIn("&quot;", titles["3"])
+        html = graph.generate_html()
+        self.assertIn('"direction": "UD"', html)
+        self.assertIn('"enabled": false', html)
+        self.assertNotIn("use_DOT", html)
+        self.assertNotIn("forceAtlas2Based", html)
 
 
 class QueryAndAttemptTests(unittest.TestCase):

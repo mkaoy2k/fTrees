@@ -22,7 +22,7 @@ import funcUtils as fu
 # Import database utilities
 import db_utils as dbm
 from fTrees import UI_TEXTS
-from graph_text import member_popup
+from graph_text import generation_level, member_popup
 from nav import render_sidebar, require_role
 
 # Load environment variables
@@ -82,20 +82,6 @@ def get_family_members(member_id: int) -> Dict[str, Any]:
         fu.show_user_error("❌ Error fetching family members", e)
         logger.exception("Error in get_family_members")
         return {}
-
-def generation_level(member: Dict[str, Any], fallback: int) -> int:
-    """Row for one person. A positive stored generation wins; otherwise the relative row."""
-    raw = member.get("gen_order") if isinstance(member, dict) else None
-    if raw is None or str(raw).strip() == "":
-        return fallback
-    try:
-        level = int(raw)
-    except (TypeError, ValueError):
-        return fallback
-    if level <= 0:
-        return fallback
-    return level
-
 
 def create_family_graph(family_data: Dict[str, Any], height: int = 12, width: int = 15) -> net.Network:
     """

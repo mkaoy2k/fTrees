@@ -160,7 +160,7 @@ streamlit run fTrees.py
 
 Streamlit serves the login page at `http://localhost:8501`.
 
-The three-generation page and the relationship page draw interactive HTML in the page (`streamlit.components.v1.html` around a pyvis graph). Names in the hover text are escaped. The three-generation graph places each generation on its own row, smaller generation numbers above larger ones. There is no PNG or SVG download. The relationship graph stays a directed layout of relation types around one person.
+The three-generation page and the relationship page draw interactive HTML in the page (`streamlit.components.v1.html` around a pyvis graph). Names in the hover text are escaped. The three-generation graph and the relationship graph each place a generation on its own row, smaller generation numbers above larger ones. There is no PNG or SVG download. Relationship edges stay gray and are labeled with the relation type.
 
 The retired personal-edition sample and CSV template are in `archive/personal-edition/`. A `data/me.csv` left on a machine is not read by this app and is not committed.
 

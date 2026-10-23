@@ -32,3 +32,17 @@ def related_popup(name, relation):
 def relation_popup(relation):
     """Pop-up for an edge."""
     return f"Relation: {html_text(relation)}"
+
+
+def generation_level(member, fallback):
+    """Row for one person. A positive stored generation wins; otherwise the relative row."""
+    raw = member.get("gen_order") if isinstance(member, dict) else None
+    if raw is None or str(raw).strip() == "":
+        return fallback
+    try:
+        level = int(raw)
+    except (TypeError, ValueError):
+        return fallback
+    if level <= 0:
+        return fallback
+    return level
