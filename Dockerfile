@@ -2,12 +2,8 @@ FROM python:3.13.17-slim
 
 WORKDIR /fts
 
-# The personal edition shells out to the Graphviz `dot` program.
 # Dependencies are installed before the application source so edits to
 # the app do not rebuild the package layer.
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends graphviz \
-    && rm -rf /var/lib/apt/lists/*
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt \
     && useradd --create-home --uid 1000 appuser

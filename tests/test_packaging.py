@@ -67,19 +67,22 @@ def _direct_lock_names(text):
 
 
 class PackagingTests(unittest.TestCase):
-    def test_lockfile_drops_numpy_and_adds_graphviz(self):
+    def test_lockfile_keeps_pyvis_and_drops_graphviz(self):
         pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
         direct_section = pyproject.split("[tool.uv]", 1)[0].lower()
         self.assertNotIn("numpy", direct_section)
-        self.assertIn("graphviz>=", direct_section)
+        self.assertNotIn("graphviz", direct_section)
+        self.assertIn("pyvis>=", direct_section)
         self.assertTrue((ROOT / "uv.lock").is_file())
         locked = _direct_lock_names((ROOT / "requirements.txt").read_text(encoding="utf-8"))
-        self.assertIn("graphviz", locked)
+        self.assertNotIn("graphviz", locked)
+        self.assertIn("pyvis", locked)
         self.assertIn("pandas", locked)
         self.assertIn("streamlit", locked)
         self.assertNotIn("numpy", locked)
         environment = (ROOT / "environment.yaml").read_text(encoding="utf-8")
         self.assertNotIn("/Users/", environment)
+        self.assertNotIn("graphviz", environment.lower())
         self.assertIn("requirements.txt", environment)
         self.assertIn("python=3.12", environment)
 
@@ -88,12 +91,20 @@ class PackagingTests(unittest.TestCase):
         self.assertTrue(license_text.startswith("MIT License"))
         self.assertIn("Copyright (c) 2026 Michael Kao", license_text)
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        self.assertIn("streamlit run ftpe.py", readme)
+        self.assertNotIn("streamlit run ftpe.py", readme)
+        self.assertIn("archive/personal-edition", readme)
         self.assertIn("data/family.db", readme)
         self.assertIn("in place", readme)
         self.assertIn("family.db.bak", readme)
         self.assertIn("https://github.com/mkaoy2k/fTrees.git", readme)
         self.assertIn("python -m unittest discover -s tests -t . -v", readme)
+        self.assertFalse((ROOT / "data" / "me.sample.csv").exists())
+        self.assertFalse((ROOT / "data" / "template.csv").exists())
+        self.assertTrue((ROOT / "archive" / "personal-edition" / "me.sample.csv").is_file())
+        self.assertTrue((ROOT / "archive" / "personal-edition" / "template.csv").is_file())
+        self.assertFalse((ROOT / "ftpe.py").exists())
+        self.assertFalse((ROOT / "glogTime.py").exists())
+        self.assertNotIn("get_1st_mbr_dict", (ROOT / "funcUtils.py").read_text(encoding="utf-8"))
 
     def test_dockerfile_syntax_volume_headless_and_healthcheck(self):
         text = (ROOT / "Dockerfile").read_text(encoding="utf-8")
@@ -116,6 +127,8 @@ class PackagingTests(unittest.TestCase):
         self.assertIsInstance(json.loads(command), list)
         self.assertIn("STREAMLIT_SERVER_HEADLESS=true", text)
         self.assertIn("uid 1000", text)
+        self.assertNotIn("graphviz", text.lower())
+        self.assertNotIn("apt-get", text)
         ignore = (ROOT / ".dockerignore").read_text(encoding="utf-8")
         self.assertIn(".env", ignore)
         self.assertIn("data/*.db", ignore)

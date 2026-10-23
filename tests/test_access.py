@@ -71,7 +71,6 @@ class RoleGateTests(unittest.TestCase):
             "pages/2_famMgmt.py",
             "pages/3_csv_editor.py",
             "pages/4_json_editor.py",
-            "ftpe.py",
             "pages/6_show_3G.py",
             "pages/7_show_related.py",
             "pages/8_caseMgmt.py",
@@ -81,6 +80,7 @@ class RoleGateTests(unittest.TestCase):
             self.assertIn("require_role", source, name)
             self.assertIn("render_sidebar", source, name)
         self.assertFalse((ROOT / "pages" / "5_ftpe.py").exists())
+        self.assertFalse((ROOT / "ftpe.py").exists())
 
     def test_reset_page_uses_one_sentence(self):
         source = (ROOT / "fTrees.py").read_text(encoding="utf-8")
@@ -101,6 +101,40 @@ class RoleGateTests(unittest.TestCase):
         self.assertIn("member_popup", page6)
         self.assertIn("related_popup", page7)
         self.assertIn("center_popup", page7)
+        self.assertIn('"direction": "UD"', page6)
+        self.assertIn('"enabled": false', page6)
+        self.assertNotIn("graphviz", page6.lower())
+        self.assertNotIn("neato", page6)
+
+    def test_three_generation_rows_follow_generation(self):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("show_3g", ROOT / "pages" / "6_show_3G.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        family = {
+            "center": {"id": 2, "name": "Ada <b>", "sex": "f", "gen_order": 2, "born": "1950-01-01"},
+            "parents": [
+                {"id": 1, "name": "Bob", "sex": "m", "gen_order": 1},
+                {"id": 4, "name": "Dee", "sex": "f"},
+            ],
+            "children": [
+                {"id": 3, "name": 'Cy "C"', "sex": "m", "gen_order": "3"},
+                {"id": 5, "name": "Eve", "sex": "f", "gen_order": 0},
+            ],
+            "grandparents": [],
+            "grandchildren": [],
+        }
+        graph = module.create_family_graph(family, height=8, width=10)
+        levels = {node["id"]: node["level"] for node in graph.nodes}
+        self.assertEqual(levels, {"2": 2, "1": 1, "4": 1, "3": 3, "5": 3})
+        titles = {node["id"]: node["title"] for node in graph.nodes}
+        self.assertEqual(titles["2"], "ID: 2<br>Name: Ada &lt;b&gt;")
+        self.assertNotIn("<b>", titles["2"])
+        html = graph.generate_html()
+        self.assertIn('"direction": "UD"', html)
+        self.assertIn('"enabled": false', html)
+        self.assertNotIn("use_DOT", html)
 
 
 class QueryAndAttemptTests(unittest.TestCase):

@@ -1,12 +1,10 @@
 # Portable environment for conda. Application packages come from the
 # lockfile (requirements.txt), which is exported from pyproject.toml.
-# The Graphviz package here is the `dot` program used by ftpe.py.
 name: ftrees
 channels:
   - conda-forge
 dependencies:
   - python=3.12
   - pip
-  - graphviz
   - pip:
       - -r requirements.txt
