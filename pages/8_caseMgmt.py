@@ -16,7 +16,7 @@ import pandas as pd
 from dotenv import load_dotenv
 import logging
 import os
-from case_helpers import chosen_parents, member_user_fields, project_env_file
+from case_helpers import chosen_parents, lookup_members, member_user_fields, parent_relation, project_env_file
 from nav import render_sidebar, require_role
 
 # --- Initialize system environment --- from here
@@ -134,7 +134,7 @@ def new_birth_page():
                 if search_type == f"{UI_TEXTS['member']} {UI_TEXTS['id']}":
                     # Search by id
                     try:
-                        parent = dbm.get_member(int(parent_id))
+                        parent = (lookup_members(member_id=parent_id) or [None])[0]
                         if parent:
                             if parent.get('sex', '').lower() == 'male':
                                 st.session_state.selected_parents['father'] = parent['id']
@@ -152,7 +152,7 @@ def new_birth_page():
                     parent_name = parent_name.strip().lower()
                     try:
                         if parent_name:
-                            members = dbm.search_members(name=parent_name)
+                            members = lookup_members(name=parent_name)
                             if members:
                                 for member in members:
                                     st.session_state.search_results.append(member)
@@ -184,7 +184,7 @@ def new_birth_page():
                     radio_key = f"new_birth_parent_role_{member['id']}_{idx}"
                     parent_role = st.radio(
                         "",  # Empty label since we're using our own
-                        ["None", UI_TEXTS['dad'], UI_TEXTS['mom']],
+                        [UI_TEXTS['none'], UI_TEXTS['dad'], UI_TEXTS['mom']],
                         key=radio_key,
                         horizontal=True,
                         index=0,
@@ -199,7 +199,7 @@ def new_birth_page():
                         if m['id'] != member['id']:
                             m_radio_key = f"new_birth_parent_role_{m['id']}_{m_idx}"
                             if st.session_state.get(m_radio_key) == UI_TEXTS['dad']:
-                                st.session_state[m_radio_key] = "None"
+                                st.session_state[m_radio_key] = UI_TEXTS['none']
                 elif parent_role == UI_TEXTS['mom']:
                     st.session_state.selected_parents['mother'] = member['id']
                     # Clear any previous mother selection
@@ -207,9 +207,9 @@ def new_birth_page():
                         if m['id'] != member['id']:
                             m_radio_key = f"new_birth_parent_role_{m['id']}_{m_idx}"
                             if st.session_state.get(m_radio_key) == UI_TEXTS['mom']:
-                                st.session_state[m_radio_key] = "None"
+                                st.session_state[m_radio_key] = UI_TEXTS['none']
                 else:
-                    # If "None" is selected, clear this member from selected_parents if they were selected
+                    # If none is selected, clear this member from selected_parents if they were selected
                     if st.session_state.selected_parents.get('father') == member['id']:
                         st.session_state.selected_parents['father'] = None
                     if st.session_state.selected_parents.get('mother') == member['id']:
@@ -349,23 +349,13 @@ def new_birth_page():
                             
                             # Add father relationship if selected
                             if father:
-                                relation_data = {
-                                    'member_id': new_member_id,
-                                    'partner_id': father['id'],
-                                    'relation': 'parent',  # This is from parent's perspective
-                                    'join_date': born
-                                }
+                                relation_data = parent_relation(new_member_id, father['id'], born)
                                 if dbm.add_or_update_relation(relation_data, update=True):
                                     success_count += 1
                             
                             # Add mother relationship if selected
                             if mother:
-                                relation_data = {
-                                    'member_id': new_member_id,
-                                    'partner_id': mother['id'],
-                                    'relation': 'parent',  # This is from parent's perspective
-                                    'join_date': born
-                                }
+                                relation_data = parent_relation(new_member_id, mother['id'], born)
                                 if dbm.add_or_update_relation(relation_data, update=True):
                                     success_count += 1
                             
@@ -450,7 +440,7 @@ def new_death_page():
             st.session_state.search_results = []
             if search_type == f"{UI_TEXTS['member']} {UI_TEXTS['id']}" and member_id:
                 try:
-                    member = dbm.get_member(member_id)
+                    member = (lookup_members(member_id=member_id) or [None])[0]
                     if member:
                         st.session_state.search_results = [member]
                     else:
@@ -464,7 +454,7 @@ def new_death_page():
                 name = name.strip().lower()
                 try:
                     if name:
-                        members = dbm.search_members(name=name)
+                        members = lookup_members(name=name)
                         if members:
                             st.session_state.search_results = members
                         else:
@@ -623,7 +613,7 @@ def new_adopted_child_page():
                 if search_type == f"{UI_TEXTS['member']} {UI_TEXTS['id']}":
                     # Search by id
                     try:
-                        parent = dbm.get_member(int(parent_id))
+                        parent = (lookup_members(member_id=parent_id) or [None])[0]
                         if parent:
                             if parent.get('sex', '').lower() == 'male':
                                 st.session_state.selected_parents['father'] = parent['id']
@@ -641,7 +631,7 @@ def new_adopted_child_page():
                     parent_name = parent_name.strip().lower()
                     try:
                         if parent_name:
-                            parents = dbm.search_members(name=parent_name)
+                            parents = lookup_members(name=parent_name)
                             if parents:
                                 for parent in parents:
                                     st.session_state.search_results.append(parent)
@@ -673,7 +663,7 @@ def new_adopted_child_page():
                     radio_key = f"adopted_parent_role_{member['id']}_{idx}"
                     parent_role = st.radio(
                         "",  # Empty label since we're using our own
-                        ["None", UI_TEXTS['dad'], UI_TEXTS['mom']],
+                        [UI_TEXTS['none'], UI_TEXTS['dad'], UI_TEXTS['mom']],
                         key=radio_key,
                         horizontal=True,
                         index=0,
@@ -688,7 +678,7 @@ def new_adopted_child_page():
                         if m['id'] != member['id']:
                             m_radio_key = f"adopted_parent_role_{m['id']}_{m_idx}"
                             if st.session_state.get(m_radio_key) == UI_TEXTS['dad']:
-                                st.session_state[m_radio_key] = "None"
+                                st.session_state[m_radio_key] = UI_TEXTS['none']
                 elif parent_role == UI_TEXTS['mom']:
                     st.session_state.selected_parents['mother'] = member['id']
                     # Clear any previous mother selection
@@ -696,9 +686,9 @@ def new_adopted_child_page():
                         if m['id'] != member['id']:
                             m_radio_key = f"adopted_parent_role_{m['id']}_{m_idx}"
                             if st.session_state.get(m_radio_key) == UI_TEXTS['mom']:
-                                st.session_state[m_radio_key] = "None"
+                                st.session_state[m_radio_key] = UI_TEXTS['none']
                 else:
-                    # If "None" is selected, clear this member from selected_parents if they were selected
+                    # If none is selected, clear this member from selected_parents if they were selected
                     if st.session_state.selected_parents.get('father') == member['id']:
                         st.session_state.selected_parents['father'] = None
                     if st.session_state.selected_parents.get('mother') == member['id']:
@@ -846,13 +836,8 @@ def new_adopted_child_page():
                     # Create adoption relationships for each selected parent
                     success_count = 0
                     for parent in parents:
-                        relation_data = {
-                            'member_id': member_id,
-                            'partner_id': parent['id'],
-                            'relation': relation_type,
-                            'join_date': join_date,
-                            'end_date': '0000-00-00'
-                        }
+                        relation_data = parent_relation(
+                            member_id, parent['id'], join_date, relation_type, end_date='0000-00-00')
                             
                         # Add the relationship record
                         relation_id = dbm.add_or_update_relation(
@@ -934,7 +919,7 @@ def new_adopted_parent_page():
             st.session_state.search_results = []
             if search_type == f"{UI_TEXTS['member']} {UI_TEXTS['id']}" and child_id:
                 try:
-                    child = dbm.get_member(child_id)
+                    child = (lookup_members(member_id=child_id) or [None])[0]
                     if child:
                         st.session_state.search_results = [child]
                     else:
@@ -948,7 +933,7 @@ def new_adopted_parent_page():
                 name = child_name.strip().lower()
                 try:
                     if name:
-                        members = dbm.search_members(name=name)
+                        members = lookup_members(name=name)
                         if members:
                             st.session_state.search_results = members
                         else:
@@ -1099,13 +1084,8 @@ def new_adopted_parent_page():
                             st.error(f"❌ {UI_TEXTS['member_error']} : {member_data}")
                     
                         # Create relationship record
-                        relationship_data = {
-                            'member_id': member_id,
-                            'partner_id': selected_child['id'],
-                            'relation': relation_type,
-                            'join_date': relation_join_date,
-                            'end_date': '0000-00-00'
-                        }
+                        relationship_data = parent_relation(
+                            member_id, selected_child['id'], relation_join_date, relation_type, end_date='0000-00-00')
                     
                         # Add the relationship record
                         relation_id = dbm.add_or_update_relation(
@@ -1206,7 +1186,7 @@ def divorce_seperation_page():
                 # Search by id or name
                 if search_type == f"{UI_TEXTS['member']} {UI_TEXTS['id']}" and member_id:
                     try:
-                        member = dbm.get_member(member_id)
+                        member = (lookup_members(member_id=member_id) or [None])[0]
                         if member:
                             if st.session_state.selected_parties['partner1'] is None:
                                 st.session_state.selected_parties['partner1'] = member
@@ -1224,7 +1204,7 @@ def divorce_seperation_page():
                     name = name.strip().lower()
                     try:
                         if name:
-                            members = dbm.search_members(name=name)
+                            members = lookup_members(name=name)
                             if members:
                                 for member in members:
                                     st.session_state.search_results.append(member)
@@ -1254,7 +1234,7 @@ def divorce_seperation_page():
                 with col_radio:
                     partner_role = st.radio(
                         "",  # Empty label since we're using our own
-                        ["None", UI_TEXTS['partner']+'-1', UI_TEXTS['partner']+'-2'],
+                        [UI_TEXTS['none'], UI_TEXTS['partner']+'-1', UI_TEXTS['partner']+'-2'],
                         key=f"partner_role_{member['id']}",
                         horizontal=True,
                         index=0,
@@ -1267,15 +1247,15 @@ def divorce_seperation_page():
                     # Clear any previous partner selection
                     for m in st.session_state.search_results:
                         if m['id'] != member['id'] and st.session_state.get(f"partner_role_{m['id']}") == UI_TEXTS['partner']+'-1':
-                            st.session_state[f"partner_role_{m['id']}"] = "None"
+                            st.session_state[f"partner_role_{m['id']}"] = UI_TEXTS['none']
                 elif partner_role == UI_TEXTS['partner']+'-2':
                     st.session_state.selected_parties['partner2'] = member['id']
                     # Clear any previous partner selection
                     for m in st.session_state.search_results:
                         if m['id'] != member['id'] and st.session_state.get(f"partner_role_{m['id']}") == UI_TEXTS['partner']+'-2':
-                            st.session_state[f"partner_role_{m['id']}"] = "None"
+                            st.session_state[f"partner_role_{m['id']}"] = UI_TEXTS['none']
                 else:
-                    # If "None" is selected, clear this member from selected_partners if they were selected
+                    # If none is selected, clear this member from selected_partners if they were selected
                     if st.session_state.selected_parties.get('partner1') == member['id']:
                         st.session_state.selected_parties['partner1'] = None
                     if st.session_state.selected_parties.get('partner2') == member['id']:
@@ -1457,7 +1437,7 @@ def new_marriage_partnership_page():
             st.session_state.search_results = []
             if search_type == f"{UI_TEXTS['member']} {UI_TEXTS['id']}" and member_id:
                 try:
-                    member = dbm.get_member(member_id)
+                    member = (lookup_members(member_id=member_id) or [None])[0]
                     if member:
                         st.session_state.search_results.append(member)
                     else:
@@ -1469,7 +1449,7 @@ def new_marriage_partnership_page():
                 name = name.strip().lower()
                 try:
                     if name:
-                        members = dbm.search_members(name=name)
+                        members = lookup_members(name=name)
                         if members:
                             st.session_state.search_results.extend(members)
                         else:
@@ -1614,13 +1594,8 @@ def new_marriage_partnership_page():
                             st.error(f"❌ {UI_TEXTS['member_error']} : {member_data}")
                         
                         # Create relationship record
-                        relationship_data = {
-                            'member_id': member_id,
-                            'partner_id': selected_partner['id'],
-                            'relation': relationship_type.lower(),
-                            'join_date': join_date,
-                            'end_date': '0000-00-00'
-                        }
+                        relationship_data = parent_relation(
+                            member_id, selected_partner['id'], join_date, relationship_type.lower(), end_date='0000-00-00')
                         
                         # Add the relationship record
                         relation_id = dbm.add_or_update_relation(
@@ -1702,7 +1677,7 @@ def new_step_child_page():
             st.session_state.search_results = []
             if search_type == f"{UI_TEXTS['member']} {UI_TEXTS['id']}":
                 try:
-                    member = dbm.get_member(member_id)
+                    member = (lookup_members(member_id=member_id) or [None])[0]
                     if member:
                         st.session_state.search_results.append(member)
                     else:
@@ -1712,7 +1687,7 @@ def new_step_child_page():
             elif search_type == f"{UI_TEXTS['member']} {UI_TEXTS['name']}" and name.strip():
                 name = name.strip().lower()
                 try:
-                    members = dbm.search_members(name=name)
+                    members = lookup_members(name=name)
                     if members:
                         st.session_state.search_results.extend(members)
                     else:
@@ -1858,13 +1833,8 @@ def new_step_child_page():
                             st.error(f"❌ {UI_TEXTS['member_error']} : {member_data}")
                         
                         # Create relationship record
-                        relationship_data = {
-                            'member_id': member_id,
-                            'partner_id': selected_step_parent['id'],
-                            'relation': relationship_type.lower(),
-                            'join_date': join_date,
-                            'end_date': '0000-00-00'
-                        }
+                        relationship_data = parent_relation(
+                            member_id, selected_step_parent['id'], join_date, relationship_type.lower(), end_date='0000-00-00')
                         
                         # Add the relationship record
                         relation_id = dbm.add_or_update_relation(
@@ -1946,7 +1916,7 @@ def new_step_parent_page():
             st.session_state.search_results = []
             if search_type == f"{UI_TEXTS['member']} {UI_TEXTS['id']}":
                 try:
-                    member = dbm.get_member(member_id)
+                    member = (lookup_members(member_id=member_id) or [None])[0]
                     if member:
                         st.session_state.search_results.append(member)
                     else:
@@ -1956,7 +1926,7 @@ def new_step_parent_page():
             elif search_type == f"{UI_TEXTS['member']} {UI_TEXTS['name']}" and name.strip():
                 name = name.strip().lower()
                 try:
-                    members = dbm.search_members(name=name)
+                    members = lookup_members(name=name)
                     if members:
                         st.session_state.search_results.extend(members)
                     else:
@@ -2102,13 +2072,8 @@ def new_step_parent_page():
                             st.error(f"{UI_TEXTS['member_error']} : {member_data}")
                         
                         # Create relationship record
-                        relationship_data = {
-                            'member_id': member_id,
-                            'partner_id': selected_step_child['id'],
-                            'relation': relationship_type,
-                            'join_date': join_date,
-                            'end_date': '0000-00-00'
-                        }
+                        relationship_data = parent_relation(
+                            member_id, selected_step_child['id'], join_date, relationship_type, end_date='0000-00-00')
                         
                         # Add the relationship record
                         relation_id = dbm.add_or_update_relation(
@@ -2153,14 +2118,14 @@ def main() -> None:
     
     # Main tab groups
     case_tabs = st.tabs([
-        "New Birth", 
-        "New Death", 
-        "New Adopted Child",
-        "New Adopted Parent",
-        "Divorce/Seperation",
-        "New Marriage/Partnership",
-        "New Step Child",
-        "New Step Parent"
+        UI_TEXTS['new_birth'],
+        UI_TEXTS['new_death'],
+        f"{UI_TEXTS['new']} {UI_TEXTS['adopted_child']}",
+        f"{UI_TEXTS['new']} {UI_TEXTS['adopted_parent']}",
+        f"{UI_TEXTS['divorce']}/{UI_TEXTS['seperation']}",
+        f"{UI_TEXTS['new']} {UI_TEXTS['marriage']}/{UI_TEXTS['partnership']}",
+        f"{UI_TEXTS['new']} {UI_TEXTS['step_child']}",
+        f"{UI_TEXTS['new']} {UI_TEXTS['step_parent']}",
         ])
     
     with case_tabs[0]:  # New Birth
@@ -2199,12 +2164,7 @@ def main() -> None:
 if 'app_context' not in st.session_state:
     cu.init_session_state()
 
-# Get UI_TEXTS with a fallback to English if needed
-try:
-    UI_TEXTS = st.session_state.ui_context[st.session_state.app_context.get('language', 'US')]
-except (KeyError, AttributeError):
-    # Fallback to English if there's any issue
-    UI_TEXTS = st.session_state.ui_context['US']
+UI_TEXTS = fu.session_texts()
 
 if __name__ == "__main__":
     cu.apply_ui_preferences()

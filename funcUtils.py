@@ -122,6 +122,57 @@ def get_languages():
     
     return list(js.keys())
 
+def resolve_language(catalogs, language, default="US"):
+    """Return the catalog key for ``language``.
+
+    Exact matches win. Otherwise the comparison is case-insensitive, so
+    ``spanish`` and ``SPANISH`` both select ``Spanish``. An unknown name
+    falls back to ``default`` when that catalog exists.
+    """
+    if not isinstance(catalogs, dict) or not catalogs:
+        return default
+    if language in catalogs:
+        return language
+    if isinstance(language, str):
+        folded = language.casefold()
+        for key in catalogs:
+            if isinstance(key, str) and key.casefold() == folded:
+                return key
+    if default in catalogs:
+        return default
+    folded_default = str(default).casefold()
+    for key in catalogs:
+        if isinstance(key, str) and key.casefold() == folded_default:
+            return key
+    return next(iter(catalogs))
+
+
+def texts_for(catalogs, language, default="US"):
+    """One language dictionary, or an empty dictionary when none are loaded."""
+    if not isinstance(catalogs, dict):
+        return {}
+    return catalogs.get(resolve_language(catalogs, language, default), {}) or {}
+
+
+def language_index(languages, current, default="US"):
+    """Index of ``current`` in a language list, matched without case."""
+    names = list(languages or [])
+    if not names:
+        return 0
+    chosen = resolve_language({name: {} for name in names}, current, default)
+    try:
+        return names.index(chosen)
+    except ValueError:
+        return 0
+
+
+def session_texts(default="US"):
+    """Texts for the language stored in the Streamlit session."""
+    catalogs = st.session_state.get("ui_context")
+    app = st.session_state.get("app_context") or {}
+    language = app.get("language", default) if isinstance(app, dict) else default
+    return texts_for(catalogs, language, default)
+
 @st.cache_data(ttl=300)
 def load_L10N(base=None):
     """

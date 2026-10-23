@@ -302,6 +302,6 @@ class DatabaseLayerTests(unittest.TestCase):
             )
 
     def test_executable_sys_path_hack_is_gone(self):
-        for relative in ("funcUtils.py", "pages/5_ftpe.py", "email_utils.py"):
+        for relative in ("funcUtils.py", "ftpe.py", "email_utils.py"):
             text = (ROOT / relative).read_text()
             self.assertNotIn("sys.path.append", text)

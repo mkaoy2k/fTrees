@@ -24,8 +24,7 @@ _ADMINS = (
 _PLATFORM = (dbm.User_State["p_admin"],)
 
 # page, L10N keys, fallback label, icon, roles that may see the link.
-# CSV and JSON stay proper nouns. Keys that a language file does not have
-# yet fall back to the English label.
+# Keys that a language file does not have yet fall back to the English label.
 _LINKS = (
     ("fTrees.py", ("home",), "Home", "🏠", _ALL),
     ("pages/1_usrMgmt.py", ("user", "management"), "User Management", "👤", _PLATFORM),
@@ -34,8 +33,8 @@ _LINKS = (
     ("pages/9_birthday.py", ("birthday",), "Birthday", "🎂", _ADMINS),
     ("pages/6_show_3G.py", ("MENU_QUERY_TBL_BY_3GEN",), "Show 3 Generations", "👥", _ALL),
     ("pages/7_show_related.py", ("relation",), "Relation", "👨‍👩‍👧‍👦", _ALL),
-    ("pages/3_csv_editor.py", (), "CSV", "🔧", _ALL),
-    ("pages/4_json_editor.py", (), "JSON", "🪛", _ALL),
+    ("pages/3_csv_editor.py", ("csv_editor",), "CSV", "🔧", _ALL),
+    ("pages/4_json_editor.py", ("json_editor",), "JSON", "🪛", _ALL),
 )
 
 _HIDE_DEFAULT_NAV = """
@@ -84,13 +83,9 @@ def navigation_links(role, texts=None):
 
 def _ui_texts():
     try:
-        language = st.session_state.app_context.get("language", "US")
-        return st.session_state.ui_context[language]
+        return fu.session_texts()
     except (AttributeError, KeyError, TypeError):
-        try:
-            return st.session_state.ui_context["US"]
-        except (AttributeError, KeyError, TypeError):
-            return {}
+        return {}
 
 
 def _sidebar_title(role, texts):

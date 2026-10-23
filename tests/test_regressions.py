@@ -48,6 +48,33 @@ class CaseHelperTests(unittest.TestCase):
         self.assertNotIn("script_dir / '.env'", source)
         self.assertNotIn("User_State['f_member']", source)
         self.assertNotIn("partner_name", source)
+        self.assertIn("lookup_members", source)
+        self.assertIn("parent_relation", source)
+
+    def test_lookup_members_and_parent_relation(self):
+        with patch.object(case_helpers.dbm, "get_member", return_value={"id": 3, "name": "Ada"}) as get_member:
+            self.assertEqual(case_helpers.lookup_members(member_id="3"), [{"id": 3, "name": "Ada"}])
+            get_member.assert_called_once_with(3)
+        with patch.object(case_helpers.dbm, "get_member") as get_member:
+            self.assertEqual(case_helpers.lookup_members(member_id=0), [])
+            self.assertEqual(case_helpers.lookup_members(member_id=-4), [])
+            get_member.assert_not_called()
+            with self.assertRaises(ValueError):
+                case_helpers.lookup_members(member_id="nope")
+        with patch.object(case_helpers.dbm, "search_members", return_value=[{"id": 4}]) as search:
+            self.assertEqual(case_helpers.lookup_members(name="  Ada "), [{"id": 4}])
+            search.assert_called_once_with(name="ada")
+        self.assertEqual(case_helpers.lookup_members(), [])
+        row = case_helpers.parent_relation(1, 2, "2000-01-01")
+        self.assertEqual(row, {
+            "member_id": 1,
+            "partner_id": 2,
+            "relation": "parent",
+            "join_date": "2000-01-01",
+        })
+        ended = case_helpers.parent_relation(1, 2, "2000-01-01", "adopt", end_date="0000-00-00")
+        self.assertEqual(ended["relation"], "adopt")
+        self.assertEqual(ended["end_date"], "0000-00-00")
 
 
 class ThreeGenerationTests(unittest.TestCase):

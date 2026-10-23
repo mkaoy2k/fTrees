@@ -268,7 +268,8 @@ def show_reset_password_page():
                         st.session_state.reset_error = "Please enter your email address"
                     else:
                         _send_reset_if_registered(str(email).strip())
-                        st.session_state.reset_success = au.RESET_REQUEST_MESSAGE
+                        st.session_state.reset_success = UI_TEXTS.get(
+                            "reset_request_message", au.RESET_REQUEST_MESSAGE)
                         st.session_state.reset_error = None
                         st.rerun()
     
@@ -409,7 +410,7 @@ def show_login_page():
                 if not email or not password:
                     st.error(f"{fu.get_function_name()} {UI_TEXTS['field']} {UI_TEXTS['required']}")
                 elif not au.login_allowed(email):
-                    st.error("Too many attempts. Try again later.")
+                    st.error(UI_TEXTS.get("too_many_attempts", "Too many attempts. Try again later."))
                 elif au.verify_padmin(email, password):
                     au.clear_auth_attempts(email, "login")
                     st.session_state.authenticated = True
@@ -593,12 +594,7 @@ def search_members_page() -> None:
     else:
         family_id = int(st.session_state.app_context.get('family_id') or 0)
 
-    # Get UI_TEXTS with a fallback to English if needed
-    try:
-        UI_TEXTS = st.session_state.ui_context[st.session_state.app_context.get('language', 'US')]
-    except (KeyError, AttributeError):
-        # Fallback to English if there's any issue
-        UI_TEXTS = st.session_state.ui_context['US']
+    UI_TEXTS = fu.session_texts()
 
     if 'search_filters' not in st.session_state:
         st.session_state.search_filters = None
@@ -741,7 +737,7 @@ def search_members_page() -> None:
         if page > 0 and prev_col.button(UI_TEXTS['back'], key="search_prev"):
             st.session_state.search_page = page - 1
             st.rerun()
-        if len(results) == page_size and next_col.button("Next", key="search_next"):
+        if len(results) == page_size and next_col.button(UI_TEXTS['next'], key="search_next"):
             st.session_state.search_page = page + 1
             st.rerun()
     else:
@@ -782,9 +778,7 @@ def show_fadmin_content() -> None:
                 lang_list = ["US", "繁中"]
             
             current_lang = st.session_state.app_context.get('language')
-            lang_index = 0
-            if current_lang and current_lang in lang_list:
-                lang_index = lang_list.index(current_lang)
+            lang_index = fu.language_index(lang_list, current_lang)
             
             l10n = st.selectbox(
                 f"{UI_TEXTS['select']} {UI_TEXTS['subscription']} {UI_TEXTS['language']}",
@@ -1028,9 +1022,7 @@ def show_front_end():
                 lang_list = ["US", "繁中"]
                 
             current_lang = st.session_state.app_context.get('language')
-            lang_index = 0
-            if current_lang and current_lang in lang_list:
-                lang_index = lang_list.index(current_lang)
+            lang_index = fu.language_index(lang_list, current_lang)
                 
             language = st.selectbox(
                 f"{UI_TEXTS['language']}",
@@ -1069,7 +1061,7 @@ def show_front_end():
         
         # Update context
         cu.update_context(st.session_state.app_context)
-        UI_TEXTS = st.session_state.ui_context[language]
+        UI_TEXTS = fu.texts_for(st.session_state.ui_context, language)
         cu.apply_ui_preferences()
 
         st.success(f"{UI_TEXTS['settings']} {UI_TEXTS['updated']} {UI_TEXTS['successfully']}")
@@ -1138,7 +1130,9 @@ def show_back_end(available_tables):
                     ["JSON", "CSV"].index(st.session_state.app_context.get('fss', {}).get('file_type', 'JSON')),
                 help="Select the file format for import/export"
             )
-        choice = st.radio(f"{UI_TEXTS['select']}:", ["Export", "Import"])
+        export_label = UI_TEXTS['export']
+        import_label = UI_TEXTS['import']
+        choice = st.radio(f"{UI_TEXTS['select']}:", [export_label, import_label])
         if st.form_submit_button(f"{UI_TEXTS['submit']}", type="primary"):
             cu.update_context({
                 'fss': {
@@ -1150,9 +1144,9 @@ def show_back_end(available_tables):
                 }
             })
             file_path = get_file_path()
-            if file_path and choice == "Export":
+            if file_path and choice == export_label:
                 handle_export(dbm.export_to_file, file_path, db_table)
-            elif file_path and choice == "Import":
+            elif file_path and choice == import_label:
                 handle_import(dbm.import_from_file, file_path, db_table)
    
 def show_padmin_content():
@@ -1165,7 +1159,7 @@ def show_padmin_content():
     available_tables = init_db_management()
     
     if not available_tables:
-        st.info("No tables found in the database.")
+        st.info(UI_TEXTS['no_tables'])
         return
     # Display tables in a select box
     selected_table = st.selectbox(f"{UI_TEXTS['select']} {UI_TEXTS['table']}", available_tables)
@@ -1289,7 +1283,7 @@ def main():
 
 # Initialize session state
 cu.init_session_state()
-UI_TEXTS = st.session_state.ui_context[st.session_state.app_context.get('language', "US")]
+UI_TEXTS = fu.session_texts()
     
 if __name__ == "__main__":
     main()
