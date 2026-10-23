@@ -177,9 +177,22 @@ def _create_schema(conn) -> None:
     cursor.execute(f"CREATE INDEX IF NOT EXISTS idx_relations_partner ON {relations}(partner_id)")
     cursor.execute(f"CREATE INDEX IF NOT EXISTS idx_relations_original ON {relations}(original_family_id)")
     cursor.execute(f"CREATE INDEX IF NOT EXISTS idx_families_name ON {families}(name)")
+    cursor.execute(f"CREATE INDEX IF NOT EXISTS idx_members_born ON {members}(born)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_reset_token ON password_reset_tokens(token)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_reset_email ON password_reset_tokens(email)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_reset_expires ON password_reset_tokens(expires_at)")
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS login_attempts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT NOT NULL,
+            action TEXT NOT NULL,
+            attempted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_login_attempts_lookup
+        ON login_attempts(email, action, attempted_at)
+    """)
     cursor.execute(f"CREATE INDEX IF NOT EXISTS idx_mirrors_name ON {mirrors}(Name)")
     cursor.execute(f"CREATE INDEX IF NOT EXISTS idx_mirrors_order ON {mirrors}({quote_ident('Order')})")
 

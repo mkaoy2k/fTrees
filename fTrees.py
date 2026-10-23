@@ -28,6 +28,7 @@ import db_utils as dbm
 import email_utils as eu
 import auth_utils as au
 import funcUtils as fu
+import nav
 import pandas as pd
 
 # Import database operations
@@ -51,6 +52,73 @@ st.set_page_config(
     initial_sidebar_state="expanded",
     menu_items=None  # This will be updated after login
 )
+
+def _send_reset_if_registered(email):
+    """Send a reset link when the address is registered and still under the limit.
+
+    Send failures stay in the log. The page always shows the same sentence.
+    """
+    log = logging.getLogger("ftpe")
+    if not au.reset_may_send(email):
+        log.info("Password reset request rate-limited")
+        return
+    au.record_auth_attempt(email, "reset")
+    try:
+        with dbm.get_db_connection() as conn:
+            row = conn.execute(
+                "SELECT id FROM users WHERE email = ?",
+                (email,),
+            ).fetchone()
+        if row is None:
+            return
+        expires_hours = int(os.getenv("PASSWORD_RESET_TOKEN_EXPIRY_HOURS", "24"))
+        token = au.create_password_reset_token(email, expires_hours)
+        if not token:
+            log.error("Password reset token was not created")
+            return
+        reset_link = f"{os.getenv('FT_SVR', 'http://localhost:8501')}/?token={token}"
+        app_name = os.getenv("APP_NAME", "FamilyTrees")
+        subject = "Password Reset Request"
+        text = f"""
+        Hello,
+
+        You have requested to reset your password. Please click the link below to reset your password:
+
+        {reset_link}
+
+        This link will expire in {expires_hours} hours.
+
+        If you did not request this, please ignore this email.
+
+        Regards,
+        {app_name} Team
+        """
+        html_body = f"""
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Password Reset Request</h2>
+            <p>Hello,</p>
+            <p>You have requested to reset your password. Please click the button below to reset your password:</p>
+            <p style="text-align: center; margin: 30px 0;">
+                <a href="{reset_link}" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">
+                    Reset Password
+                </a>
+            </p>
+            <p>Or copy and paste this link into your browser:</p>
+            <p><code>{reset_link}</code></p>
+            <p>This link will expire in {expires_hours} hours.</p>
+            <p>If you did not request this, please ignore this email.</p>
+            <p>Regards,<br>{app_name} Team</p>
+        </div>
+        """
+        publisher = eu.EmailPublisher(
+            email_sender=eu.Config.MAIL_USERNAME,
+            email_password=eu.Config.MAIL_PASSWORD,
+        )
+        if not publisher.publish_email(subject, text, html_body, [email]):
+            log.error("Password reset email was not sent")
+    except Exception:
+        log.error("Password reset request failed", exc_info=True)
+
 
 def show_reset_password_page():
     """Display the password reset page"""
@@ -195,83 +263,14 @@ def show_reset_password_page():
                 
                 if request_button:
                     st.session_state.reset_error = None
-                    
-                    if not email:
+
+                    if not email or not str(email).strip():
                         st.session_state.reset_error = "Please enter your email address"
                     else:
-                        try:
-                            with dbm.get_db_connection() as conn:
-                                cursor = conn.cursor()
-                                cursor.execute("""
-                                    SELECT id FROM users 
-                                    WHERE email = ?
-                                """, (email,))
-                                if cursor.fetchone():
-                                    # Get expiration hours from environment variable.
-                                    # create_password_reset_token stores only a hash of the token.
-                                    expires_hours = int(os.getenv('PASSWORD_RESET_TOKEN_EXPIRY_HOURS', '24'))
-                                    token = au.create_password_reset_token(email, expires_hours)
-                                    if not token:
-                                        st.session_state.reset_error = "Failed to create a password reset token. Please try again later."
-                                        st.session_state.reset_success = None
-                                        conn.commit()
-                                        st.rerun()
-                                        return
-                                    
-                                    reset_link = f"{os.getenv('FT_SVR', 'http://localhost:8501')}/?token={token}"
-                                    
-                                    subject = "Password Reset Request"
-                                    text = f"""
-                                    Hello,
-                                    
-                                    You have requested to reset your password. Please click the link below to reset your password:
-                                    
-                                    {reset_link}
-                                    
-                                    This link will expire in {expires_hours} hours.
-                                    
-                                    If you did not request this, please ignore this email.
-                                    
-                                    Regards,
-                                    {os.getenv('APP_NAME', 'FamilyTrees')} Team
-                                    """
-                                    
-                                    html = f"""
-                                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                                        <h2>Password Reset Request</h2>
-                                        <p>Hello,</p>
-                                        <p>You have requested to reset your password. Please click the button below to reset your password:</p>
-                                        <p style="text-align: center; margin: 30px 0;">
-                                            <a href="{reset_link}" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">
-                                                Reset Password
-                                            </a>
-                                        </p>
-                                        <p>Or copy and paste this link into your browser:</p>
-                                        <p><code>{reset_link}</code></p>
-                                        <p>This link will expire in {expires_hours} hours.</p>
-                                        <p>If you did not request this, please ignore this email.</p>
-                                        <p>Regards,<br>{os.getenv('APP_NAME', 'FamilyTrees')} Team</p>
-                                    </div>
-                                    """
-                                    
-                                    publisher = eu.EmailPublisher(
-                                        email_sender=eu.Config.MAIL_USERNAME,
-                                        email_password=eu.Config.MAIL_PASSWORD
-                                    )
-                                    
-                                    if publisher.publish_email(subject, text, html, [email]):
-                                        st.session_state.reset_success = f"Password reset link has been sent to {email}. Please check your email."
-                                        st.session_state.reset_error = None
-                                    else:
-                                        st.session_state.reset_error = "Failed to send password reset email. Please try again later."
-                                else:
-                                    st.session_state.reset_success = "If your email exists in our system, you will receive a password reset link."
-                                    st.session_state.reset_error = None
-                                    
-                                conn.commit()
-                                st.rerun()
-                        except Exception as e:
-                            fu.show_user_error("Error processing your request", e)
+                        _send_reset_if_registered(str(email).strip())
+                        st.session_state.reset_success = au.RESET_REQUEST_MESSAGE
+                        st.session_state.reset_error = None
+                        st.rerun()
     
 def reset_password_page():
     """
@@ -405,146 +404,49 @@ def show_login_page():
                 st.session_state.show_forgot_password = True
                 st.rerun()
             
-            # Handle login
-            if login_clicked:                    
-                # Validate input
+            # Handle login. One click is one attempt, after all three roles fail.
+            if login_clicked:
                 if not email or not password:
                     st.error(f"{fu.get_function_name()} {UI_TEXTS['field']} {UI_TEXTS['required']}")
+                elif not au.login_allowed(email):
+                    st.error("Too many attempts. Try again later.")
+                elif au.verify_padmin(email, password):
+                    au.clear_auth_attempts(email, "login")
+                    st.session_state.authenticated = True
+                    st.session_state.user_email = email
+                    st.session_state.user_state = dbm.User_State['p_admin']
+                    st.session_state.login_error = None
+                    fu.log_activity(email, 'login')
+                    st.rerun()
+                elif au.verify_fadmin(email, password):
+                    au.clear_auth_attempts(email, "login")
+                    st.session_state.authenticated = True
+                    st.session_state.user_email = email
+                    st.session_state.user_state = dbm.User_State['f_admin']
+                    st.session_state.login_error = None
+                    fu.log_activity(email, 'login')
+                    st.rerun()
+                elif au.verify_fmember(email, password):
+                    au.clear_auth_attempts(email, "login")
+                    st.session_state.authenticated = True
+                    st.session_state.user_email = email
+                    st.session_state.user_state = dbm.User_State['f_member']
+                    st.session_state.login_error = None
+                    fu.log_activity(email, 'login')
+                    st.rerun()
                 else:
-                    # Verify credentials
-                    if au.verify_padmin(email, password):
-                        st.session_state.authenticated = True
-                        st.session_state.user_email = email
-                        st.session_state.user_state = dbm.User_State['p_admin']
-                        st.session_state.login_error = None
-                        # Log successful login
-                        fu.log_activity(email, 'login')
-                        st.rerun()
-                    elif au.verify_fadmin(email, password):
-                        st.session_state.authenticated = True
-                        st.session_state.user_email = email
-                        st.session_state.user_state = dbm.User_State['f_admin']
-                        st.session_state.login_error = None
-                        # Log successful login
-                        fu.log_activity(email, 'login')
-                        st.rerun()
-                    elif au.verify_fmember(email, password):
-                        st.session_state.authenticated = True
-                        st.session_state.user_email = email
-                        st.session_state.user_state = dbm.User_State['f_member']
-                        st.session_state.login_error = None
-                        # Log successful login
-                        fu.log_activity(email, 'login')
-                        st.rerun()
-                    else:
-                        st.error(f"{fu.get_function_name()} {UI_TEXTS['email']} or {UI_TEXTS['password']} {UI_TEXTS['not_found']}")
+                    au.record_auth_attempt(email, "login")
+                    st.error(f"{fu.get_function_name()} {UI_TEXTS['email']} or {UI_TEXTS['password']} {UI_TEXTS['not_found']}")
 
 def show_fmember_sidebar():
-    """Display the family member sidebar with 
-    personal navigation options"""
-    global UI_TEXTS
-    
-    # Hide the default navigation for members
-    st.markdown("""
-        <style>
-            [data-testid="stSidebarNav"] {
-                display: none;
-            }
-        </style>
-    """, unsafe_allow_html=True)
-    
-    with st.sidebar:
-        st.sidebar.title(f"{UI_TEXTS['family']} {UI_TEXTS['member']} {UI_TEXTS['sidebar']}")
-        
-        # Display current login email
-        if 'user_email' in st.session_state and st.session_state.user_email:
-            st.markdown(
-                f"<div style='background-color: #2e7d32; padding: 0.5rem; border-radius: 0.5rem; margin-bottom: 1rem;'>"
-                f"<p style='color: white; margin: 0; font-weight: bold; text-align: center;'>{st.session_state.user_email}</p>"
-                "</div>",
-                unsafe_allow_html=True
-            )
-            cu.update_context({
-                'email_user': st.session_state.user_email
-            })
-        
-        # Display navigation options
-        st.sidebar.subheader(f"{UI_TEXTS['navigation']}")
-        # Obsolete - personal edition Family Tree
-        # st.page_link("pages/5_ftpe.py", label="FamilyTreePE", icon="🌲")
-        st.page_link("pages/6_show_3G.py", label="Show 3 Generations", icon="👥")
-        st.page_link("pages/7_show_related.py", label="Show Related", icon="👨‍👩‍👧‍👦")
-        st.page_link("pages/3_csv_editor.py", label="CSV Editor", icon="🔧")
-        st.page_link("pages/4_json_editor.py", label="JSON Editor", icon="🪛")
-        
-        # Display logout button at the bottom
-        if st.button(f"{UI_TEXTS['logout']}", type="primary", use_container_width=True):
-            # Log logout activity
-            if 'user_email' in st.session_state and st.session_state.user_email:
-                fu.log_activity(st.session_state.user_email, 'logout')
-            st.session_state.authenticated = False
-            st.session_state.user_email = None
-            st.rerun()
-    
+    """Display the family member sidebar with personal navigation options."""
+    nav.render_sidebar()
+
 def show_fadmin_sidebar():
-    """Display the family admin sidebar with 
-    limited family admin navigation options"""
+    """Display the family admin sidebar with limited family admin navigation options."""
     global UI_TEXTS
-    
-    # Hide the default navigation for members
-    st.markdown("""
-        <style>
-            [data-testid="stSidebarNav"] {
-                display: none;
-            }
-        </style>
-    """, unsafe_allow_html=True)
-    
+    nav.render_sidebar()
     with st.sidebar:
-        st.sidebar.title(f"{UI_TEXTS['family']} {UI_TEXTS['admin']} {UI_TEXTS['sidebar']}")
-        if st.session_state.user_state != dbm.User_State['p_admin']:
-            # Hide the default navigation for non-padmin users
-            st.markdown("""
-            <style>
-                [data-testid="stSidebarNav"] {
-                    display: none !important;
-                }
-            </style>""", unsafe_allow_html=True)
-        
-        if 'user_email' in st.session_state and st.session_state.user_email:
-            st.markdown(
-                f"<div style='background-color: #2e7d32; padding: 0.5rem; border-radius: 0.5rem; margin-bottom: 1rem;'>"
-                f"<p style='color: white; margin: 0; font-weight: bold; text-align: center;'>{st.session_state.user_email}</p>"
-                "</div>",
-                unsafe_allow_html=True
-            )
-            cu.update_context({
-                'email_user': st.session_state.user_email
-            })
-        
-        # Page Navigation Links
-        st.subheader(f"{UI_TEXTS['navigation']}")
-        st.page_link("fTrees.py", label="Home", icon="🏠")
-        
-        # Obsolete - personal edition Family Tree
-        # st.page_link("pages/5_ftpe.py", label="FamilyTreePE", icon="📊")
-        st.page_link("pages/2_famMgmt.py", label="Family Management", icon="🌲")
-        st.page_link("pages/8_caseMgmt.py", label="Case Management", icon="📋")
-        st.page_link("pages/9_birthday.py", label="Birthday", icon="🎂")
-        st.page_link("pages/6_show_3G.py", label="Show 3 Generations", icon="👥")            
-        st.page_link("pages/7_show_related.py", label="Show Related", icon="👨‍👩‍👧‍👦")
-        st.page_link("pages/3_csv_editor.py", label="CSV Editor", icon="🔧")
-        st.page_link("pages/4_json_editor.py", label="JSON Editor", icon="🪛")
- 
-        # Display logout button at the bottom
-        if st.button(f"{UI_TEXTS['logout']}", type="primary", use_container_width=True):
-            # Log logout activity
-            if 'user_email' in st.session_state and st.session_state.user_email:
-                fu.log_activity(st.session_state.user_email, 'logout')
-            st.session_state.authenticated = False
-            st.session_state.user_email = None
-            st.rerun()
-        
         # Display current family admin users
         st.sidebar.subheader(f"{UI_TEXTS['current']} {UI_TEXTS['family']} {UI_TEXTS['admin']} {UI_TEXTS['user']}")
         try:
@@ -601,22 +503,8 @@ def show_fadmin_sidebar():
 def show_padmin_sidebar():
     """Display the platform admin sidebar"""
     global UI_TEXTS
-    
+    nav.render_sidebar()
     with st.sidebar:
-        st.sidebar.title("Platform Admin Sidebar")
-        
-        # Display current login email
-        if 'user_email' in st.session_state and st.session_state.user_email:
-            st.markdown(
-                f"<div style='background-color: #2e7d32; padding: 0.5rem; border-radius: 0.5rem; margin-bottom: 1rem;'>"
-                f"<p style='color: white; margin: 0; font-weight: bold; text-align: center;'>{st.session_state.user_email}</p>"
-                "</div>",
-                unsafe_allow_html=True
-            )
-            cu.update_context({
-                'email_user': st.session_state.user_email
-            })
-        
         # Display current platform admin info
         st.sidebar.subheader(f"{UI_TEXTS['platform']} {UI_TEXTS['admin']} {UI_TEXTS['user']} {UI_TEXTS['management']}")
         with st.expander(f"{UI_TEXTS['create']} {UI_TEXTS['or']} {UI_TEXTS['update']} {UI_TEXTS['platform']} {UI_TEXTS['admin']} {UI_TEXTS['user']}", expanded=False):
@@ -646,15 +534,6 @@ def show_padmin_sidebar():
                             st.success(f"✅ {UI_TEXTS['platform']} {UI_TEXTS['admin']} {UI_TEXTS['user']} {UI_TEXTS['created']} {UI_TEXTS['successfully']}")
                         else:
                             st.error(f"❌ {fu.get_function_name()}: {UI_TEXTS['platform']} {UI_TEXTS['admin']} {UI_TEXTS['user']} {UI_TEXTS['created']} {UI_TEXTS['failed']}")
-    
-        # Display logout button at the bottom
-        if st.sidebar.button(f"{UI_TEXTS['logout']}", type="primary", use_container_width=True):
-            # Log logout activity
-            if 'user_email' in st.session_state and st.session_state.user_email:
-                fu.log_activity(st.session_state.user_email, 'logout')
-            st.session_state.authenticated = False
-            st.session_state.user_email = None
-            st.rerun()
 
         # Display current platform admin users
         st.sidebar.subheader(f"{UI_TEXTS['current']} {UI_TEXTS['platform']} {UI_TEXTS['admin']} {UI_TEXTS['user']}")
@@ -712,7 +591,7 @@ def search_members_page() -> None:
     if st.session_state.user_state == dbm.User_State['p_admin']:
         family_id = 0
     else:
-        family_id = int(st.session_state.app_context.get('family_id'))
+        family_id = int(st.session_state.app_context.get('family_id') or 0)
 
     # Get UI_TEXTS with a fallback to English if needed
     try:
@@ -720,15 +599,16 @@ def search_members_page() -> None:
     except (KeyError, AttributeError):
         # Fallback to English if there's any issue
         UI_TEXTS = st.session_state.ui_context['US']
-    
-    # Initialize session state for search results
-    if 'search_results' not in st.session_state:
-        st.session_state.search_results = []
-    
-    # Search form
+
+    if 'search_filters' not in st.session_state:
+        st.session_state.search_filters = None
+    if 'search_page' not in st.session_state:
+        st.session_state.search_page = 0
+
+    # Search form. Results render outside the form so paging survives the next rerun.
     with st.form("search_form"):
         st.subheader(f"{UI_TEXTS['search']} {UI_TEXTS['family']} ({UI_TEXTS['id']}: {family_id}) {UI_TEXTS['member']}")
-        
+
         alive = st.radio(
             f"{UI_TEXTS['search']} {UI_TEXTS['members']}",
             [UI_TEXTS['all'], UI_TEXTS['alive']],
@@ -737,11 +617,10 @@ def search_members_page() -> None:
             horizontal=True,
             help=f"{UI_TEXTS['search']} {UI_TEXTS['members']}"
         )
-        # Create three rows of search fields
         row1_col1, row1_col2, row1_col3 = st.columns(3)
         row2_col1, row2_col2, row2_col3 = st.columns(3)
         row3_col1, row3_col2, row3_col3 = st.columns(3)
-        
+
         with row2_col1:
             name = st.text_input(UI_TEXTS['name'], "")
         with row1_col2:
@@ -766,7 +645,6 @@ def search_members_page() -> None:
                 placeholder="in YYYY-MM-DD format"
             )
         with row2_col3:
-            # Only p_admin can change family_id
             if st.session_state.user_state == dbm.User_State['p_admin']:
                 family_id = st.number_input(
                     f"{UI_TEXTS['family']} {UI_TEXTS['id']}",
@@ -777,8 +655,7 @@ def search_members_page() -> None:
             else:
                 st.write(f"{UI_TEXTS['family']} {UI_TEXTS['id']}:")
                 st.write(family_id)
-            
-        # Third row of search filters
+
         with row1_col1:
             member_id = st.number_input(
                 f"{UI_TEXTS['member']} {UI_TEXTS['id']}",
@@ -794,80 +671,84 @@ def search_members_page() -> None:
                 ["", UI_TEXTS['sex_male'], UI_TEXTS['sex_female'], UI_TEXTS['sex_other']]
             )
 
-        # Search button
         submitted = st.form_submit_button(f"{UI_TEXTS['search']}", type="primary")
-        
-        if submitted:
-            with st.spinner(f"{UI_TEXTS['search']} {UI_TEXTS['in_progress']} ..."):
-                # Execute search
-                results = dbm.search_members(
-                    name=name if name else "",
-                    alias=alias if alias else "",
-                    family_id=family_id if family_id > 0 else 0,
-                    gen_order=gen_order if gen_order > 0 else 0,
-                    born=born if born else "",
-                    died=died if died else "",
-                    id=member_id if member_id > 0 else 0,
-                    email=email if email else "",
-                    sex={UI_TEXTS['sex_male']: "M", UI_TEXTS['sex_female']: "F", UI_TEXTS['sex_other']: "O"}.get(sex, "") if sex else "",
-                    alive=alive == UI_TEXTS['alive']
-                )
-                if results: 
-                    st.session_state.search_results = results
-                else:
-                    st.session_state.search_results = []
-    
-            # Display search results
-            if st.session_state.search_results:
-                st.subheader(f"{UI_TEXTS['search']} {UI_TEXTS['results']}")
-                
-                # Prepare data for display
-                df = pd.DataFrame(st.session_state.search_results)
-        
-                # Define all fields from dbm.db_tables['members'] table
-                all_fields = dbm.get_table_columns(dbm.db_tables['members'])
-        
-                # Ensure all columns exist in the dataframe
-                for field in all_fields:
-                    if field not in df.columns:
-                        df[field] = None
-                        
-                # Convert date columns to string to avoid serialization issues
-                date_columns = ['born', 'died', 'created_at', 'updated_at']
-                for col in date_columns:
-                    if col in df.columns and not df[col].empty:
-                        df[col] = df[col].astype(str)
-        
-                # Display data table with all fields
-                st.dataframe(
-                    df[all_fields],
-                    column_config={
-                        'id': 'ID',
-                        'name': 'Name',
-                        'family_id': 'Family ID',
-                        'alias': 'Alias',
-                        'email': 'Email',
-                        'url': 'Website',
-                        'born': 'Birth Date',
-                        'died': 'Death Date',
-                        'sex': 'Gender',
-                        'gen_order': 'Generation',
-                        'dad_id': 'Father ID',
-                        'mom_id': 'Mother ID',
-                        'created_at': 'Created At',
-                        'updated_at': 'Updated At'
-                    },
-                    hide_index=True,
-                    use_container_width=True,
-                    column_order=all_fields
-                )
-        
-                # Show result count
-                st.markdown(f"### {UI_TEXTS['search']} {UI_TEXTS['count']}: {len(df)} records")
-                st.success(f"✅ {UI_TEXTS['successful']} {UI_TEXTS['search']}")
-            elif submitted:
-                # No results message
-                st.warning(f"⚠️ {UI_TEXTS['no_results_found_for']} {UI_TEXTS['member']}")
+
+    if submitted:
+        st.session_state.search_filters = {
+            "name": name or "",
+            "alias": alias or "",
+            "family_id": family_id if family_id and family_id > 0 else 0,
+            "gen_order": gen_order if gen_order and gen_order > 0 else 0,
+            "born": born or "",
+            "died": died or "",
+            "id": member_id if member_id and member_id > 0 else 0,
+            "email": email or "",
+            "sex": {UI_TEXTS['sex_male']: "M", UI_TEXTS['sex_female']: "F", UI_TEXTS['sex_other']: "O"}.get(sex, "") if sex else "",
+            "alive": alive == UI_TEXTS['alive'],
+        }
+        st.session_state.search_page = 0
+
+    filters = st.session_state.search_filters
+    if not filters:
+        return
+
+    page_size = int(st.session_state.app_context.get("items_per_page") or cu.ITEMS_PER_PAGE)
+    page = int(st.session_state.search_page or 0)
+    with st.spinner(f"{UI_TEXTS['search']} {UI_TEXTS['in_progress']} ..."):
+        results = dbm.search_members(
+            limit=page_size,
+            offset=page * page_size,
+            **filters,
+        )
+
+    if results:
+        st.subheader(f"{UI_TEXTS['search']} {UI_TEXTS['results']}")
+        df = pd.DataFrame(results)
+        all_fields = dbm.get_table_columns(dbm.db_tables['members'])
+        for field in all_fields:
+            if field not in df.columns:
+                df[field] = None
+        date_columns = ['born', 'died', 'created_at', 'updated_at']
+        for col in date_columns:
+            if col in df.columns and not df[col].empty:
+                df[col] = df[col].astype(str)
+        st.dataframe(
+            df[all_fields],
+            column_config={
+                'id': 'ID',
+                'name': 'Name',
+                'family_id': 'Family ID',
+                'alias': 'Alias',
+                'email': 'Email',
+                'url': 'Website',
+                'born': 'Birth Date',
+                'died': 'Death Date',
+                'sex': 'Gender',
+                'gen_order': 'Generation',
+                'dad_id': 'Father ID',
+                'mom_id': 'Mother ID',
+                'created_at': 'Created At',
+                'updated_at': 'Updated At'
+            },
+            hide_index=True,
+            use_container_width=True,
+            column_order=all_fields
+        )
+        st.markdown(
+            f"### {UI_TEXTS['page']} {page + 1} — {UI_TEXTS['search']} {UI_TEXTS['count']}: {len(df)}"
+        )
+        prev_col, next_col = st.columns(2)
+        if page > 0 and prev_col.button(UI_TEXTS['back'], key="search_prev"):
+            st.session_state.search_page = page - 1
+            st.rerun()
+        if len(results) == page_size and next_col.button("Next", key="search_next"):
+            st.session_state.search_page = page + 1
+            st.rerun()
+    else:
+        st.warning(f"⚠️ {UI_TEXTS['no_results_found_for']} {UI_TEXTS['member']}")
+        if page > 0 and st.button(UI_TEXTS['back'], key="search_prev_empty"):
+            st.session_state.search_page = page - 1
+            st.rerun()
 
 def show_fadmin_content() -> None:
     """Display the family admin content area"""

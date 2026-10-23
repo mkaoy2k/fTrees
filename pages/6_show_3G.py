@@ -22,6 +22,8 @@ import funcUtils as fu
 # Import database utilities
 import db_utils as dbm
 from fTrees import UI_TEXTS
+from graph_text import member_popup
+from nav import render_sidebar, require_role
 
 # Load environment variables
 load_dotenv()
@@ -252,7 +254,7 @@ def create_family_graph(family_data: Dict[str, Any], height: int = 12, width: in
         graph.add_node(
             member_id,
             label=label,
-            title=f"ID: {member.get('id', 'N/A')}<br>Name: {name}",
+            title=member_popup(member.get('id', 'N/A'), name),
             **get_node_style(member)
         )
     
@@ -336,46 +338,8 @@ def main():
     """Main function to render the Streamlit app."""
     global UI_TEXTS
     
-    # Sidebar --- from here
-    with st.sidebar:
-        if st.session_state.user_state != dbm.User_State['p_admin']:
-            # Hide the default navigation for non-padmin users
-            st.markdown("""
-            <style>
-            [data-testid="stSidebarNav"] {
-                display: none !important;
-                }
-            </style>""", unsafe_allow_html=True)
-        
-        if 'user_email' in st.session_state and st.session_state.user_email:
-            st.markdown(
-                f"<div style='background-color: #2e7d32; padding: 0.5rem; border-radius: 0.5rem; margin-bottom: 1rem;'>"
-                f"<p style='color: white; margin: 0; font-weight: bold; text-align: center;'>{st.session_state.user_email}</p>"
-                "</div>",
-                unsafe_allow_html=True)
-            cu.update_context({'email_user': st.session_state.user_email})
-        
-        if st.session_state.user_state != dbm.User_State['p_admin']:
-            st.subheader(f"{UI_TEXTS['navigation']}")
-            st.page_link("fTrees.py", label="Home", icon="🏠")
-            # st.page_link("pages/5_ftpe.py", label="FamilyTreePE", icon="📊")
-            if st.session_state.user_state == dbm.User_State['f_admin']:
-                st.page_link("pages/2_famMgmt.py", label="Family Management", icon="🌲")
-                st.page_link("pages/8_caseMgmt.py", label="Case Management", icon="📋")
-                st.page_link("pages/9_birthday.py", label="Birthday", icon="🎂")
-            st.page_link("pages/7_show_related.py", label="Show Related", icon="👨‍👩‍👧‍👦")
-            st.page_link("pages/3_csv_editor.py", label="CSV Editor", icon="🔧")
-            st.page_link("pages/4_json_editor.py", label="JSON Editor", icon="🪛")
-            
-        # Add logout button at the bottom
-        if st.button(f"{UI_TEXTS['logout']}", type="primary", use_container_width=True, key="show_3g_logout"):
-            # Log logout activity
-            if 'user_email' in st.session_state and st.session_state.user_email:
-                fu.log_activity(st.session_state.user_email, 'logout')
-            st.session_state.authenticated = False
-            st.session_state.user_email = None
-            st.rerun()
-    
+    render_sidebar()
+
     # Main content area --- from here
         
     st.header(f"{UI_TEXTS['family']} {UI_TEXTS['gen_order']} {UI_TEXTS['visualization']}")
@@ -524,6 +488,11 @@ if __name__ == "__main__":
     if not st.session_state.get('authenticated', False):
         st.switch_page("fTrees.py")
     else:
+        require_role(
+            dbm.User_State['p_admin'],
+            dbm.User_State['f_admin'],
+            dbm.User_State['f_member'],
+        )
         if 'app_context' not in st.session_state:
             st.session_state.app_context = cu.init_context()
         main()

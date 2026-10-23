@@ -16,6 +16,8 @@ from typing import Dict, List, Any
 import db_utils as dbm
 import context_utils as cu
 import funcUtils as fu
+from graph_text import center_popup, related_popup, relation_popup
+from nav import render_sidebar, require_role
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -187,7 +189,7 @@ def create_relationship_graph(relationship_data: Dict[str, Any]) -> net.Network:
     graph.add_node(
         center_id,
         label=center_label,
-        title=f"Center Member: {center_name}",
+        title=center_popup(center_name),
         color={
             'background': '#ffffe0',  # Light yellow for center
             'border': '#ffd700'       # Gold border
@@ -209,7 +211,7 @@ def create_relationship_graph(relationship_data: Dict[str, Any]) -> net.Network:
         graph.add_node(
             family_member_id,
             label=family_member_label,
-            title=f"Family Member: {family_member_name}\nRelation: {relation_type}",
+            title=related_popup(family_member_name, relation_type),
             color={
                 'background': '#f0f8ff',  # Light blue background
                 'border': '#4682b4'      # Steel blue border
@@ -224,7 +226,7 @@ def create_relationship_graph(relationship_data: Dict[str, Any]) -> net.Network:
             center_id,
             family_member_id,
             label=relation_type,
-            title=f"Relation: {relation_type}",
+            title=relation_popup(relation_type),
             color='#a9a9a9'
         )
     
@@ -241,46 +243,8 @@ def main():
         page_icon="👨‍👩‍👧‍👦",
         layout="wide"
     )
-    # Sidebar --- from here
-    with st.sidebar:
-        if st.session_state.user_state != dbm.User_State['p_admin']:
-            # Hide the default navigation for non-padmin users
-            st.markdown("""
-            <style>
-            [data-testid="stSidebarNav"] {
-                display: none !important;
-                }
-            </style>""", unsafe_allow_html=True)
-        
-        if 'user_email' in st.session_state and st.session_state.user_email:
-            st.markdown(
-                f"<div style='background-color: #2e7d32; padding: 0.5rem; border-radius: 0.5rem; margin-bottom: 1rem;'>"
-                f"<p style='color: white; margin: 0; font-weight: bold; text-align: center;'>{st.session_state.user_email}</p>"
-                "</div>",
-                unsafe_allow_html=True)
-            cu.update_context({'email_user': st.session_state.user_email})
-        
-        if st.session_state.user_state != dbm.User_State['p_admin']:
-            st.subheader(f"{UI_TEXTS['navigation']}")
-            st.page_link("fTrees.py", label="Home", icon="🏠")
-            # st.page_link("pages/5_ftpe.py", label="FamilyTreePE", icon="📊")
-            if st.session_state.user_state == dbm.User_State['f_admin']:
-                st.page_link("pages/2_famMgmt.py", label="Family Management", icon="🌲")
-                st.page_link("pages/8_caseMgmt.py", label="Case Management", icon="📋")
-                st.page_link("pages/9_birthday.py", label="Birthday", icon="🎂")
-            st.page_link("pages/6_show_3G.py", label="Show 3 Generations", icon="👥")
-            st.page_link("pages/3_csv_editor.py", label="CSV Editor", icon="🔧")
-            st.page_link("pages/4_json_editor.py", label="JSON Editor", icon="🪛")
-            
-        # Add logout button at the bottom
-        if st.button(f"{UI_TEXTS['logout']}", type="primary", use_container_width=True, key="show_3g_logout"):
-            # Log logout activity
-            if 'user_email' in st.session_state and st.session_state.user_email:
-                fu.log_activity(st.session_state.user_email, 'logout')
-            st.session_state.authenticated = False
-            st.session_state.user_email = None
-            st.rerun()
-    
+    render_sidebar()
+
     # Main page --- from here
     st.header(f"{UI_TEXTS['family']} {UI_TEXTS['member']} {UI_TEXTS['relation']} {UI_TEXTS['visualization']}")
     st.subheader(f"{UI_TEXTS['search']} {UI_TEXTS['family']} {UI_TEXTS['member']} {UI_TEXTS['relation']}")
@@ -359,6 +323,11 @@ except (KeyError, AttributeError):
 if not st.session_state.get('authenticated', False):
     st.switch_page("fTrees.py")
 else:
+    require_role(
+        dbm.User_State['p_admin'],
+        dbm.User_State['f_admin'],
+        dbm.User_State['f_member'],
+    )
     if 'app_context' not in st.session_state:
         st.session_state.app_context = cu.init_context()
     main()

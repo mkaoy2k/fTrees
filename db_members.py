@@ -8,12 +8,36 @@ from db_connection import (
     MEMBER_FK_COLUMNS,
     db_tables,
     get_db_connection,
-    get_table_columns,
     log,
     nullable_fk,
     quote_ident,
     column_assignments,
 )
+
+# Matches member_is_alive: empty and unrecognized values (including the
+# default '0000-00-00', which is not a real date) are living members.
+# Placeholder tokens, a 4-digit year, and a parseable YYYY-MM-DD or YYYY-MM
+# mean the member has died.
+ALIVE_SQL = """
+(
+  "died" IS NULL OR TRIM(CAST("died" AS TEXT)) = ''
+  OR (
+    TRIM(CAST("died" AS TEXT)) NOT IN ('0', '0000-01-01', 'YYYY', 'YYYY-MM', 'YYYY-MM-DD')
+    AND NOT (
+      LENGTH(TRIM(CAST("died" AS TEXT))) = 4
+      AND TRIM(CAST("died" AS TEXT)) GLOB '[0-9][0-9][0-9][0-9]'
+    )
+    AND NOT (
+      LENGTH(TRIM(CAST("died" AS TEXT))) = 10
+      AND date(TRIM(CAST("died" AS TEXT))) IS NOT NULL
+    )
+    AND NOT (
+      LENGTH(TRIM(CAST("died" AS TEXT))) = 7
+      AND date(TRIM(CAST("died" AS TEXT)) || '-01') IS NOT NULL
+    )
+  )
+)
+"""
 
 
 def insert_member(member_data: Dict[str, Any]) -> int:
@@ -607,35 +631,21 @@ def get_members_when_born_in(month: int) -> List[Dict[str, Any]]:
             # Format month as two digits (01-12)
             month_str = f"{month:02d}"
             
-            # Query to find living members with valid full birth dates (YYYY-MM-DD) matching the specified month
+            members_table = quote_ident(db_tables['members'])
             query = f"""
                 SELECT *
-                FROM {db_tables['members']}
-                WHERE 
-                -- Must be exactly 10 characters (YYYY-MM-DD)
+                FROM {members_table}
+                WHERE
                 LENGTH(TRIM(born)) = 10
-                -- Exclude placeholder and invalid dates
                 AND born NOT IN ('0000-01-01', '0', '')
                 AND born IS NOT NULL
-                -- Check month part matches (positions 6-7 in YYYY-MM-DD)
                 AND substr(born, 6, 2) = ?
+                AND {ALIVE_SQL}
                 ORDER BY born ASC
-            """            
+            """
             cursor.execute(query, (month_str,))
-            
-            # Get column names
-            columns = get_table_columns(db_tables['members'])
-            
-            # Convert results to list of dictionaries
-            rows = cursor.fetchall()
-            members = []
-            for row in rows:
-                member = dict(zip(columns, row))
-                if member_is_alive(member):
-                    members.append(member)
-                    log.debug(f"member: {member}")
+            members = [dict(row) for row in cursor.fetchall()]
             log.debug(f"Found {len(members)} members with birthdays in month of {month:02d}")
-            
             return members
             
     except sqlite3.Error:
@@ -712,6 +722,21 @@ def member_is_alive(member_data: Dict[str, Any]) -> bool:
     log.debug(f"Member {member_id} is alive: unrecognized death date format: {died}")
     return True
 
+def _limit_clause(limit, offset):
+    """Return a bound LIMIT/OFFSET fragment. Omit both when limit is None."""
+    if limit is None:
+        return "", []
+    if isinstance(limit, bool) or isinstance(offset, bool):
+        raise ValueError("limit and offset must be non-negative integers")
+    try:
+        limit = int(limit)
+        offset = int(offset or 0)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("limit and offset must be non-negative integers") from exc
+    if limit < 0 or offset < 0:
+        raise ValueError("limit and offset must be non-negative integers")
+    return "LIMIT ? OFFSET ?", [limit, offset]
+
 def search_members(
     name: str = "",
     family_id: int = 0,
@@ -722,7 +747,9 @@ def search_members(
     id: int = 0,
     email: str = "",
     sex: str = "",
-    alive: bool = False
+    alive: bool = False,
+    limit: int = None,
+    offset: int = 0,
 ) -> List[Dict[str, Any]]:
     """
     Search for members based on various filter criteria.
@@ -749,6 +776,8 @@ def search_members(
               - "F" for female
               - "O" for other
         alive: Boolean flag to filter for living members only
+        limit: Maximum rows to return. Omit it to return every match.
+        offset: Number of matching rows to skip when limit is set.
     Returns:
         List[Dict[str, Any]]: A list of member dictionaries 
         matching the search criteria. Each dictionary contains 
@@ -836,6 +865,11 @@ def search_members(
     if sex and sex.strip():
         conditions.append("sex = ?")
         params.append(sex)
+
+    if alive:
+        conditions.append(ALIVE_SQL)
+
+    limit_sql, limit_params = _limit_clause(limit, offset)
     
     # Build the WHERE clause
     where_clause = " AND ".join(conditions) if conditions else "1=1"
@@ -843,21 +877,18 @@ def search_members(
     try:
         with get_db_connection() as conn:
             cursor = conn.cursor()
-            
-            # Execute the query with the constructed conditions
+            members_table = quote_ident(db_tables['members'])
             query = f"""
-                SELECT * FROM {db_tables['members']} 
-                WHERE {where_clause} 
+                SELECT * FROM {members_table}
+                WHERE {where_clause}
                 ORDER BY gen_order, born, name
+                {limit_sql}
             """
             
             log.debug(f"Executing search query: {query} with params: {params}")
-            cursor.execute(query, params)
+            cursor.execute(query, params + limit_params)
             
-            # Convert results to list of dictionaries
             results = [dict(row) for row in cursor.fetchall()]
-            if alive:
-                results = [member for member in results if member_is_alive(member)]
             log.debug(f"Found {len(results)} members matching search criteria")
             
             return results
@@ -894,20 +925,13 @@ def get_members_when_alive() -> List[Dict[str, Any]]:
         try:
             cursor = conn.cursor()
             
-            # First, get all members
+            members_table = quote_ident(db_tables["members"])
             cursor.execute(f"""
-                SELECT * FROM {db_tables["members"]} 
+                SELECT * FROM {members_table}
+                WHERE {ALIVE_SQL}
                 ORDER BY id
             """)
-            
-            # Filter members using member_is_alive function
-            members = []
-            for row in cursor.fetchall():
-                member = dict(row)
-                if member_is_alive(member):
-                    members.append(member)
-                
-            return members
+            return [dict(row) for row in cursor.fetchall()]
             
         except sqlite3.Error as e:
             raise sqlite3.Error(f"Database error in {fu.get_function_name()}: Error querying living members: {str(e)}")
