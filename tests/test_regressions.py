@@ -93,6 +93,15 @@ class SettingsTests(unittest.TestCase):
         self.assertEqual(pacific.loc[0, "created_at"], "2024-01-15 12:00:00")
         self.assertEqual(taipei.loc[0, "created_at"], "2024-01-16 04:00:00")
 
+    def test_default_timezone_is_pacific(self):
+        import context_utils as cu
+        pandas = __import__("pandas")
+        page = _load("usr_mgmt_page_default_tz", "pages/1_usrMgmt.py")
+        self.assertEqual(cu.DEFAULT_TIMEZONE, "America/Los_Angeles")
+        frame = pandas.DataFrame({"created_at": ["2024-01-15 20:00:00"]})
+        shown = page.format_timestamps(frame)
+        self.assertEqual(shown.loc[0, "created_at"], "2024-01-15 12:00:00")
+
     def test_unknown_timezone_falls_back_to_utc(self):
         pandas = __import__("pandas")
         page = _load("usr_mgmt_page_tz", "pages/1_usrMgmt.py")

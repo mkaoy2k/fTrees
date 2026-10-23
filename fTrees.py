@@ -1115,14 +1115,15 @@ def show_front_end():
         
         with col1:
             # Get current settings
-            current_timezone = st.session_state.app_context.get('timezone', 'UTC')
+            timezone_choices = ["UTC", "America/Los_Angeles", "Asia/Taipei"]
+            current_timezone = st.session_state.app_context.get('timezone', cu.DEFAULT_TIMEZONE)
             
             # Timezone selection
             timezone = st.selectbox(
                 f"{UI_TEXTS['timezone']}",
-                ["UTC", "America/Los_Angeles", "Asia/Taipei"],
-                index=["UTC", "America/Los_Angeles", "Asia/Taipei"].index(current_timezone) 
-                if current_timezone in ["UTC", "America/Los_Angeles", "Asia/Taipei"] else 0,
+                timezone_choices,
+                index=timezone_choices.index(current_timezone)
+                if current_timezone in timezone_choices else timezone_choices.index(cu.DEFAULT_TIMEZONE),
                 key="timezone_select"
             )
             
@@ -1380,6 +1381,8 @@ def show_padmin_content():
 def main():
     """Main application entry point"""
     global UI_TEXTS
+
+    dbm.init_db()
 
     # Initialize admin features (adds necessary columns to user table)
     if not init_admin_features():

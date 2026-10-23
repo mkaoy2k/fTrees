@@ -1,10 +1,4 @@
 """
-# Add parent directory to path to allow absolute imports
-import sys
-from pathlib import Path
-sys.path.append(str(Path(__file__).parent.parent.parent))
-
-
 Context Utilities
 
 This module provides utility functions for managing application context and settings.
@@ -22,8 +16,9 @@ load_dotenv()
 # ===== Application Settings (Module Level) =====
 # These settings can be imported by other modules using context_utils
 
-# General Settings
-TIMEZONE = os.getenv("TIMEZONE", "UTC")
+# General Settings. The owner is in Pacific Time; timestamps used to display that zone.
+DEFAULT_TIMEZONE = "America/Los_Angeles"
+TIMEZONE = os.getenv("TIMEZONE", DEFAULT_TIMEZONE)
 SITE_TITLE = os.getenv("APP_NAME", "")
 RELEASE = os.getenv("RELEASE", "")
 
@@ -134,7 +129,8 @@ def apply_ui_preferences():
 
 
 def init_session_state():
-    """Initialize session state variables"""
+    """Initialize session state variables and make sure the database schema exists."""
+    dbm.init_db()
     if 'authenticated' not in st.session_state:
         st.session_state.authenticated = False
     if 'app_context' not in st.session_state:
