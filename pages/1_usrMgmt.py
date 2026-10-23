@@ -137,14 +137,10 @@ def show_page():
                 email = email.strip()
                 
             with col22:
-                lang_list = st.session_state.app_context.get('languages', ['US'])
+                lang_list = fu.get_languages() or ['US']
                 current_lang = st.session_state.app_context.get('language', 'US')
                 logger.debug(f"Languages: {lang_list}, Current: {current_lang}")
-                
-                # Ensure the current language is in the list to avoid ValueError
-                default_index = 0
-                if current_lang in lang_list:
-                    default_index = lang_list.index(current_lang)
+                default_index = fu.language_index(lang_list, current_lang)
                 l10n = st.selectbox(
                     f':blue[{UI_TEXTS["language"]}]:', 
                     lang_list,

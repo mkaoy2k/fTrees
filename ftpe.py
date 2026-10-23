@@ -1651,21 +1651,25 @@ def load_user_l10n(base=None):
     # set system L10N setting as default locator key , 'g_loc_key'
     # and associated language dictionary, 'g_loc'
 
-    g_loc_key = os.getenv("L10N", "繁中").strip('"\'').upper()
+    g_loc_key = fu.resolve_language(g_L10N, os.getenv("L10N", "繁中").strip('"\''))
     g_loc = g_L10N[g_loc_key]
     logger.debug(f"g_loc_key={g_loc_key}")
     logger.debug(f"g_loc={g_loc}")
     return g_loc_key, g_loc
 
 
-# Initialize session state
-cu.init_session_state()
-cu.apply_ui_preferences()
-    
-# Check authentication
-if not st.session_state.get('authenticated', False):
-    st.switch_page("fTrees.py")
-else:
+if __name__ == "__main__":
+    # Initialize session state
+    cu.init_session_state()
+    cu.apply_ui_preferences()
+
+    if not st.session_state.get('authenticated', False):
+        st.warning(fu.session_texts().get(
+            "personal_sign_in",
+            "Sign in on the main FamilyTrees page, then open the personal edition.",
+        ))
+        st.stop()
+
     require_role(
         dbm.User_State['p_admin'],
         dbm.User_State['f_admin'],
@@ -1708,7 +1712,7 @@ else:
             f"{g_fullname}{g_loc['FAMILY_TREE']}\n## {g_loc['WELCOME']} {g_fullname}"
         )
         st.title(g_SBAR_TITLE)
-        
+
         # Show side-bar 9 functions
         nav = st.radio(
             g_loc["MENU_TITLE"],
@@ -1725,11 +1729,11 @@ else:
                 g_loc["MENU_SETTINGS"],
                 ],
             )
-                                    
-   # ---- SIDEBAR ---- end here
+
+    # ---- SIDEBAR ---- end here
 
     # Define global repository settings
-    g_path_dir = Path(__file__).parent.parent.resolve() / "data"
+    g_path_dir = Path(__file__).parent.resolve() / "data"
     g_fTree = f"{g_path_dir}/{g_username}.csv"
     g_fTree_template = f"{g_path_dir}/template.csv"
     g_fTree_Backup = f"{g_path_dir}/{g_username}_bak.csv"
@@ -1811,4 +1815,5 @@ else:
     main_page(nav, lname_idx)
     logger.debug(f"gbuff={gbuff}\ngbuff_idx={gbuff_idx}")
     logger.debug(f"{nav} <=== FINISHED.")
+
 

@@ -125,6 +125,7 @@ fts/
 ├── db_utils.py           # Database utilities
 ├── email_utils.py        # Email functionality
 ├── fTrees.py             # Main interface
+├── ftpe.py               # Personal edition (`streamlit run ftpe.py`)
 ├── funcUtils.py          # Utility functions
 ├── genesis.py            # Initialization script
 ├── glogTime.py           # Logging utilities
@@ -145,7 +146,6 @@ configuration script
     ├── 2_famMgmt.py      # Family management page
     ├── 3_csv_editor.py   # CSV editor page
     ├── 4_json_editor.py  # JSON editor page
-    ├── 5_ftpe.py         # ftpe page
     ├── 6_show_3G.py      # show 3G page
     ├── 7_show_related.py # show relatives page
     ├── 8_caseMgmt.py     # case management page

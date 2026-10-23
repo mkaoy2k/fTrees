@@ -28,10 +28,7 @@ def birthday_of_the_month_page():
     
     with col1:
         # Month selection dropdown
-        months = [
-            "January", "February", "March", "April", "May", "June",
-            "July", "August", "September", "October", "November", "December"
-        ]
+        months = [UI_TEXTS[f"month_{number}"] for number in range(1, 13)]
         selected_month = st.selectbox(
             f"{UI_TEXTS['select']} {UI_TEXTS['month']}", 
             options=months, 
@@ -71,11 +68,11 @@ def birthday_of_the_month_page():
     member_data = []
     for m in members:
         if m.get('sex') == 'M':
-            gender = 'Male'
+            gender = UI_TEXTS['sex_male']
         elif m.get('sex') == 'F':
-            gender = 'Female'
+            gender = UI_TEXTS['sex_female']
         else:
-            gender = 'Unknown'
+            gender = UI_TEXTS['unknown']
         member_data.append({
             'ID': m.get('id', ''),
             'Name': m.get('name', ''),
@@ -109,7 +106,7 @@ def birthday_of_the_month_page():
     if page > 0 and prev_col.button(UI_TEXTS['back'], key="birthday_prev"):
         query["page"] = page - 1
         st.rerun()
-    if start + page_size < len(df) and next_col.button("Next", key="birthday_next"):
+    if start + page_size < len(df) and next_col.button(UI_TEXTS['next'], key="birthday_next"):
         query["page"] = page + 1
         st.rerun()
 
@@ -201,12 +198,7 @@ if 'app_context' not in st.session_state:
 dbm.init_db()
 cu.apply_ui_preferences()
     
-# Get UI_TEXTS with a fallback to English if needed
-try:
-    UI_TEXTS = st.session_state.ui_context[st.session_state.app_context.get('language', 'US')]
-except (KeyError, AttributeError):
-    # Fallback to English if there's any issue
-    UI_TEXTS = st.session_state.ui_context['US']
+UI_TEXTS = fu.session_texts()
 
 # Check authentication
 if not st.session_state.get('authenticated', False):

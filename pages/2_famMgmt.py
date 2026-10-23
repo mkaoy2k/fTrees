@@ -10,7 +10,7 @@ import context_utils as cu
 import auth_utils as au
 import streamlit as st
 import db_utils as dbm
-from fTrees import UI_TEXTS, search_members_page
+from fTrees import search_members_page
 from nav import render_sidebar, require_role
 import pandas as pd
 from datetime import date
@@ -1578,12 +1578,7 @@ if 'app_context' not in st.session_state:
     cu.init_session_state()
 cu.apply_ui_preferences()
 
-# Get UI_TEXTS with a fallback to English if needed
-try:
-    UI_TEXTS = st.session_state.ui_context[st.session_state.app_context.get('language', 'US')]
-except (KeyError, AttributeError):
-    # Fallback to English if there's any issue
-    UI_TEXTS = st.session_state.ui_context['US']
+UI_TEXTS = fu.session_texts()
     
 # Check authentication
 if not st.session_state.get('authenticated', False):

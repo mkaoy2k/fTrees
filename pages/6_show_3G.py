@@ -480,10 +480,7 @@ if __name__ == "__main__":
         cu.init_session_state()
     cu.apply_ui_preferences()
 
-    try:
-        UI_TEXTS = st.session_state.ui_context[st.session_state.app_context.get('language', 'US')]
-    except (KeyError, AttributeError):
-        UI_TEXTS = st.session_state.ui_context['US']
+    UI_TEXTS = fu.session_texts()
 
     if not st.session_state.get('authenticated', False):
         st.switch_page("fTrees.py")

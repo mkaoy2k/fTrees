@@ -71,7 +71,7 @@ class RoleGateTests(unittest.TestCase):
             "pages/2_famMgmt.py",
             "pages/3_csv_editor.py",
             "pages/4_json_editor.py",
-            "pages/5_ftpe.py",
+            "ftpe.py",
             "pages/6_show_3G.py",
             "pages/7_show_related.py",
             "pages/8_caseMgmt.py",
@@ -80,6 +80,7 @@ class RoleGateTests(unittest.TestCase):
             source = (ROOT / name).read_text(encoding="utf-8")
             self.assertIn("require_role", source, name)
             self.assertIn("render_sidebar", source, name)
+        self.assertFalse((ROOT / "pages" / "5_ftpe.py").exists())
 
     def test_reset_page_uses_one_sentence(self):
         source = (ROOT / "fTrees.py").read_text(encoding="utf-8")
