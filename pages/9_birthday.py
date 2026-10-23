@@ -262,6 +262,7 @@ def main():
         
 if 'app_context' not in st.session_state:
     st.session_state.app_context = cu.init_context()
+cu.apply_ui_preferences()
     
 # Get UI_TEXTS with a fallback to English if needed
 try:

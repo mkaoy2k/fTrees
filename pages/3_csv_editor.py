@@ -281,6 +281,7 @@ def main():
 
 # Initialize session state
 cu.init_session_state()
+cu.apply_ui_preferences()
     
 # Check authentication
 if not st.session_state.get('authenticated', False):

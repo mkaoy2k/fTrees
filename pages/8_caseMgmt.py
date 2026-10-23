@@ -8,21 +8,19 @@ adopt within family, adopt outside family,
 divorce/seperation, new marriage/partnership, 
 new step child/parent.
 """
-from venv import logger
 import streamlit as st
 import db_utils as dbm
 import funcUtils as fu
 import context_utils as cu
 import pandas as pd
-from pathlib import Path
 from dotenv import load_dotenv
 import logging
 import os
+from case_helpers import chosen_parents, member_user_fields, project_env_file
 
 # --- Initialize system environment --- from here
-script_path = Path(__file__).resolve()
-script_dir = script_path.parent
-env_path = script_dir / '.env'
+# Pages live in pages/, so the project .env is one directory up.
+env_path = project_env_file(__file__)
 
 # 載入 .env 文件
 load_dotenv(env_path, override=True)
@@ -318,6 +316,7 @@ def new_birth_page():
             if refresh_clicked:
                 st.rerun()
             # Handle form submission
+            new_member_id = None
             if submit_clicked:
                 # Validate required fields
                 if not all([name, born, gen_order]):
@@ -383,14 +382,9 @@ def new_birth_page():
                         fu.show_user_error(f"❌ {UI_TEXTS['member_error']}", e)
                 # Check optional user email and password if given for
                 # subscription, create an user in the dbm.db_table['users'] table
-                if email and password:
+                if email and password and new_member_id:
                     try:
-                        user_data = {
-                            'is_admin': User_State['f_member'],
-                            'is_active': Subscriber_State['active'],
-                            'family_id': family_id,
-                            'member_id': member_id
-                        }
+                        user_data = member_user_fields(family_id, new_member_id)
                         result, error_msg = dbm.add_or_update_user(
                             email,
                             password,
@@ -544,7 +538,10 @@ def new_death_page():
                         # Clear form and search results
                         st.session_state.search_results = []
                     else:
-                        st.error(f"❌ {fu.get_function_name()} {UI_TEXTS['member_error']} {UI_TEXTS['member_not_updated']}: {error_msg}")
+                        st.error(
+                            f"❌ {fu.get_function_name()} {UI_TEXTS['member_error']} "
+                            f"{UI_TEXTS['member_not_updated']}: {update[1]}, {update[2]}"
+                        )
                 except Exception as e:
                     fu.show_user_error(f"❌ {fu.get_function_name()}: {UI_TEXTS['member_error']}", e)
 
@@ -814,11 +811,13 @@ def new_adopted_child_page():
             st.rerun()
         if refresh_clicked:
             st.rerun()
+        member_id = None
         if submit_clicked:
             # Validate required fields
+            parents = chosen_parents(father, mother)
             if not all([name, born, gen_order, join_date, relation_type]):
                 st.error(f"❌ {UI_TEXTS['relation']} {UI_TEXTS['field']} {UI_TEXTS['required']}")
-            elif not selected_parents:
+            elif not parents:
                 st.error(f"❌ {UI_TEXTS['select']} {UI_TEXTS['at_least_one']} {UI_TEXTS['dad']} {UI_TEXTS['or']} {UI_TEXTS['mom']} {UI_TEXTS['from']} {UI_TEXTS['search']} {UI_TEXTS['member']} {UI_TEXTS['form']}.")
             else:
                 try:
@@ -845,7 +844,7 @@ def new_adopted_child_page():
                         
                     # Create adoption relationships for each selected parent
                     success_count = 0
-                    for parent in selected_parents:
+                    for parent in parents:
                         relation_data = {
                             'member_id': member_id,
                             'partner_id': parent['id'],
@@ -866,7 +865,7 @@ def new_adopted_child_page():
                             st.error(f"❌ {UI_TEXTS['relation_error']}: {UI_TEXTS['relation_not_created']} for {parent.get('name')}")
                         
                         # Clear search results after successful submission if all relations were created
-                        if success_count == len(selected_parents):
+                        if success_count == len(parents):
                             if 'search_results' in st.session_state:
                                 del st.session_state.search_results
                     
@@ -876,14 +875,9 @@ def new_adopted_child_page():
                     st.error(message)
             # Check optional user email and password if given for
             # subscription, create an user in the dbm.db_table['users'] table
-            if email and password:
+            if email and password and member_id:
                 try:
-                    user_data = {
-                        'is_admin': User_State['f_member'],
-                        'is_active': Subscriber_State['active'],
-                        'family_id': family_id,
-                        'member_id': member_id
-                    }
+                    user_data = member_user_fields(family_id, member_id)
                     result, error_msg = dbm.add_or_update_user(
                         email,
                         password,
@@ -1077,7 +1071,8 @@ def new_adopted_parent_page():
                     del st.session_state['search_results']
                 st.rerun()
             if submit_clicked:
-                if not all([name, gen_order, born, join_date, relation_type]):
+                member_id = None
+                if not all([name, gen_order, born, relation_join_date, relation_type]):
                     st.error(f"❌ {UI_TEXTS['relation']} {UI_TEXTS['field']} {UI_TEXTS['required']}")
                 else:
                     try:
@@ -1117,7 +1112,7 @@ def new_adopted_parent_page():
                             update=True)
                     
                         if relation_id:
-                            st.success(f"✅ {UI_TEXTS['relation_created']}: {relationship_type} between {selected_member.get('name')} and {partner_name}")
+                            st.success(f"✅ {UI_TEXTS['relation_created']}: {relation_type} between {name} and {selected_child.get('name', '')}")
                             # Clear search results after successful submission
                             if 'search_results' in st.session_state:
                                 del st.session_state['search_results']   
@@ -1129,14 +1124,9 @@ def new_adopted_parent_page():
                     
                     # Check optional user email and password if given for
                     # subscription, create an user in the dbm.db_table['users'] table
-                    if email and password:
+                    if email and password and member_id:
                         try:
-                            user_data = {
-                                'is_admin': User_State['f_member'],
-                                'is_active': Subscriber_State['active'],
-                                'family_id': family_id,
-                                'member_id': member_id
-                            }
+                            user_data = member_user_fields(family_id, member_id)
                             result, error_msg = dbm.add_or_update_user(
                                 email,
                                 password,
@@ -1597,6 +1587,7 @@ def new_marriage_partnership_page():
                     del st.session_state.search_results
                 st.rerun()
             if submit_button:
+                member_id = None
                 # Validate required fields
                 if not all([name, gen_order, born, join_date, relationship_type]):
                     st.error(f"{UI_TEXTS['relation']} {UI_TEXTS['field']} {UI_TEXTS['required']}")
@@ -1636,7 +1627,7 @@ def new_marriage_partnership_page():
                             update=True)
                         
                         if relation_id:
-                            st.success(f"✅ {UI_TEXTS['relation_created']}: {relationship_type} between {selected_member.get('name')} and {partner_name}")
+                            st.success(f"✅ {UI_TEXTS['relation_created']}: {relationship_type} between {name} and {selected_partner.get('name', '')}")
                             # Clear search results after successful submission
                             if 'search_results' in st.session_state:
                                 del st.session_state.search_results
@@ -1648,14 +1639,9 @@ def new_marriage_partnership_page():
                 
                 # Check optional user email and password if given for
                 # subscription, create an user in the dbm.db_table['users'] table
-                if email and password:
+                if email and password and member_id:
                     try:
-                        user_data = {
-                            'is_admin': User_State['f_member'],
-                            'is_active': Subscriber_State['active'],
-                            'family_id': family_id,
-                            'member_id': member_id
-                        }
+                        user_data = member_user_fields(family_id, member_id)
                         result, error_msg = dbm.add_or_update_user(
                             email,
                             password,
@@ -1845,6 +1831,7 @@ def new_step_child_page():
                     del st.session_state.search_results
                 st.rerun()
             if submit_button:
+                member_id = None
                 # Validate required fields
                 if not all([name, gen_order, born, join_date, relationship_type]):
                     st.error(f"❌ {UI_TEXTS['relation']} {UI_TEXTS['field']} {UI_TEXTS['required']}")
@@ -1884,7 +1871,7 @@ def new_step_child_page():
                             update=True)
                         
                         if relation_id:
-                            st.success(f"✅ {UI_TEXTS['relation_created']}: {relationship_type} between {selected_member.get('name')} and {partner_name}")
+                            st.success(f"✅ {UI_TEXTS['relation_created']}: {relationship_type} between {name} and {selected_step_parent.get('name', '')}")
                             # Clear search results after successful submission
                             if 'search_results' in st.session_state:
                                 del st.session_state.search_results
@@ -1896,14 +1883,9 @@ def new_step_child_page():
                 
                 # Check optional user email and password if given for
                 # subscription, create an user in the dbm.db_table['users'] table
-                if email and password:
+                if email and password and member_id:
                     try:
-                        user_data = {
-                            'is_admin': User_State['f_member'],
-                            'is_active': Subscriber_State['active'],
-                            'family_id': family_id,
-                            'member_id': member_id
-                        }
+                        user_data = member_user_fields(family_id, member_id)
                         result, error_msg = dbm.add_or_update_user(
                             email,
                             password,
@@ -2093,6 +2075,7 @@ def new_step_parent_page():
                     del st.session_state.search_results
                 st.rerun()
             if submit_button:
+                member_id = None
                 # Validate required fields
                 if not all([name, gen_order, born, join_date, relationship_type]):
                     st.error(f"{UI_TEXTS['relation']} {UI_TEXTS['field']} {UI_TEXTS['required']}")
@@ -2132,7 +2115,7 @@ def new_step_parent_page():
                             update=True)
                         
                         if relation_id:
-                            st.success(f"✅ {UI_TEXTS['relation_created']}: {relationship_type} between {selected_member.get('name')} and {partner_name}")
+                            st.success(f"✅ {UI_TEXTS['relation_created']}: {relationship_type} between {name} and {selected_step_child.get('name', '')}")
                             # Clear search results after successful submission
                             if 'search_results' in st.session_state:
                                 del st.session_state.search_results
@@ -2144,14 +2127,9 @@ def new_step_parent_page():
                 
                 # Check optional user email and password if given for
                 # subscription, create an user in the dbm.db_table['users'] table
-                if email and password:
+                if email and password and member_id:
                     try:
-                        user_data = {
-                            'is_admin': User_State['f_member'],
-                            'is_active': Subscriber_State['active'],
-                            'family_id': family_id,
-                            'member_id': member_id
-                        }
+                        user_data = member_user_fields(family_id, member_id)
                         result, error_msg = dbm.add_or_update_user(
                             email,
                             password,
@@ -2288,6 +2266,7 @@ except (KeyError, AttributeError):
     UI_TEXTS = st.session_state.ui_context['US']
 
 if __name__ == "__main__":
+    cu.apply_ui_preferences()
     # Check authentication
     if not st.session_state.get('authenticated', False):
         st.switch_page("fTrees.py")

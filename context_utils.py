@@ -38,8 +38,9 @@ MAIL_USER = os.getenv("MAIL_USERNAME", "")
 MAIL_PASS = os.getenv("MAIL_PASSWORD", "")
 MAIL_ADMIN = os.getenv("DB_ADMIN", "")
 
-# UI Settings
-DARK_MODE = False
+# UI Settings. The shipped Streamlit theme is dark; the checkbox starts on
+# so the first paint matches config.toml until someone turns dark mode off.
+DARK_MODE = True
 ITEMS_PER_PAGE = 20
 
 # Security Settings
@@ -98,6 +99,40 @@ def update_context(new_values: dict):
         st.session_state.app_context = init_context()
     st.session_state.app_context.update(new_values)
     
+def apply_ui_preferences():
+    """Apply the saved dark-mode choice on this rerun.
+
+    `.streamlit/config.toml` is the dark theme. Turning dark mode off paints
+    a light surface over that theme for the current session.
+    """
+    if "app_context" not in st.session_state:
+        return
+    if st.session_state.app_context.get("dark_mode", True):
+        return
+    st.markdown(
+        """
+        <style>
+        [data-testid="stAppViewContainer"],
+        [data-testid="stHeader"],
+        [data-testid="stToolbar"],
+        [data-testid="stBottom"] {
+            background-color: #ffffff;
+            color: #31333f;
+        }
+        [data-testid="stSidebar"] {
+            background-color: #f0f2f6;
+        }
+        [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p,
+        [data-testid="stAppViewContainer"] [data-testid="stMarkdownContainer"] p,
+        [data-testid="stHeading"] {
+            color: #31333f;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def init_session_state():
     """Initialize session state variables"""
     if 'authenticated' not in st.session_state:

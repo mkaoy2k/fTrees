@@ -11,8 +11,6 @@ This script initializes the database with required tables
 and creates the first admin user.
 """
 import os
-import sqlite3
-from pathlib import Path
 from dotenv import load_dotenv
 import db_utils as dbm
 import auth_utils as au
@@ -34,7 +32,7 @@ def create_admin_user():
         user_id = au.create_user(email, password, 
                 role=dbm.User_State['p_admin'])
         if user_id:
-            print(f"✅ Successfully created admin user:")
+            print("✅ Successfully created admin user:")
             print(f"   Email: {email}")
             print(f"   User ID: {user_id}")
             return True

@@ -23,10 +23,10 @@ subs/data/*.db
 *.db-journal
 
 # FamilyTrees Tools or Examples
-test_*
 prod_*
-__init__*.py
+# Keep the committed Streamlit config. Ignore local secrets.
 .streamlit/*
+!.streamlit/config.toml
 
 #
 ### Python ###

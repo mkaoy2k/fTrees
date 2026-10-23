@@ -103,7 +103,7 @@ Relation_Type = {
     'other': 'other'   # other
 }
 # Log database configuration
-log.debug(f"Database configuration:")
+log.debug("Database configuration:")
 log.debug(f"- Database path: {db_path}")
 log.debug(f"- Log level: {log_level}")
 log.debug(f"- Database tables: {db_tables}")
@@ -390,11 +390,11 @@ def add_subscriber(email: str, token: str, lang: str = None) -> Tuple[bool, str]
             conn.commit()
             return True, ""
             
-    except sqlite3.Error as e:
+    except sqlite3.Error:
         error_msg = f"Database error in {fu.get_function_name()}"
         log.error(error_msg, exc_info=True)
         return False, error_msg
-    except Exception as e:
+    except Exception:
         error_msg = f"Unexpected error in {fu.get_function_name()}"
         log.error(error_msg, exc_info=True)
         return False, error_msg
@@ -449,11 +449,11 @@ def remove_subscriber(email: str) -> bool:
             log.warning(f"No records updated when unsubscribing: {email}")
             return False
             
-    except sqlite3.Error as e:
+    except sqlite3.Error:
         error_msg = f"Database error in {fu.get_function_name()}"
         log.error(error_msg, exc_info=True)
         return False
-    except Exception as e:
+    except Exception:
         error_msg = f"Unexpected error in {fu.get_function_name()}"
         log.error(error_msg, exc_info=True)
         return False
@@ -491,11 +491,11 @@ def verify_token(email: str, token: str) -> bool:
                 
             return result
             
-    except sqlite3.Error as e:
+    except sqlite3.Error:
         error_msg = f"Database error in {fu.get_function_name()}"
         log.error(error_msg, exc_info=True)
         return False
-    except Exception as e:
+    except Exception:
         error_msg = f"Unexpected error in {fu.get_function_name()}"
         log.error(error_msg, exc_info=True)
         return False
@@ -563,11 +563,11 @@ def get_subscribers(state: str = 'active', lang: str = None) -> List[Dict[str, A
                     (f" and language='{lang}'" if lang else ""))
             return subscribers
             
-    except sqlite3.Error as e:
+    except sqlite3.Error:
         error_msg = f"Database error in {fu.get_function_name()}"
         log.error(error_msg, exc_info=True)
         raise
-    except Exception as e:
+    except Exception:
         error_msg = f"Unexpected error in {fu.get_function_name()}"
         log.error(error_msg, exc_info=True)
         raise
@@ -623,11 +623,11 @@ def get_subscriber(email: str) -> Optional[Dict[str, Any]]:
             log.debug(f"No user found with email: {email}")
             return None
             
-    except sqlite3.Error as e:
+    except sqlite3.Error:
         error_msg = f"Database error in {fu.get_function_name()}"
         log.error(error_msg, exc_info=True)
         raise
-    except Exception as e:
+    except Exception:
         error_msg = f"Unexpected error in {fu.get_function_name()}"
         log.error(error_msg, exc_info=True)
         raise
@@ -691,11 +691,11 @@ def delete_subscriber(email: str) -> bool:
             log.warning(f"No rows affected when deleting subscriber: {email}")
             return False
             
-    except sqlite3.Error as e:
+    except sqlite3.Error:
         error_msg = f"Database error in {fu.get_function_name()}"
         log.error(error_msg, exc_info=True)
         raise
-    except Exception as e:
+    except Exception:
         error_msg = f"Unexpected error in {fu.get_function_name()}"
         log.error(error_msg, exc_info=True)
         raise
@@ -757,11 +757,11 @@ def insert_user(user_data: Dict[str, Any]) -> int:
             else:
                 log.debug(f"Failed to insert user: {user_data['email']} (ID: {user_data['id']})")
                 return 0
-    except sqlite3.Error as e:
+    except sqlite3.Error:
         error_msg = f"Database error in {fu.get_function_name()}"
         log.error(error_msg, exc_info=True)
         raise
-    except Exception as e:
+    except Exception:
         error_msg = f"Unexpected error in {fu.get_function_name()}"
         log.error(error_msg, exc_info=True)
         raise
@@ -874,15 +874,15 @@ def add_or_update_user(
                     family_id=user_fields['family_id'],
                     member_id=user_fields['member_id'])
                 
-    except sqlite3.IntegrityError as e:
-        error_msg = f"Database integrity error"
+    except sqlite3.IntegrityError:
+        error_msg = "Database integrity error"
         log.error(error_msg, exc_info=True)
         return False, error_msg
-    except sqlite3.Error as e:
+    except sqlite3.Error:
         error_msg = f"Database error in {fu.get_function_name()}"
         log.error(error_msg, exc_info=True)
         return False, error_msg
-    except Exception as e:
+    except Exception:
         error_msg = f"Unexpected error in {fu.get_function_name()}"
         log.error(error_msg, exc_info=True)
         return False, error_msg
@@ -926,11 +926,11 @@ def get_users(role: str = 'all') -> List[Dict[str, Any]]:
             log.debug(f"Retrieved {len(users)} users from database")
             return users
             
-    except sqlite3.Error as e:
+    except sqlite3.Error:
         error_msg = f"Database error in {fu.get_function_name()}"
         log.error(error_msg, exc_info=True)
         raise
-    except Exception as e:
+    except Exception:
         error_msg = f"Unexpected error in {fu.get_function_name()}"
         log.error(error_msg, exc_info=True)
         raise
@@ -993,11 +993,11 @@ def delete_user(user_id: int) -> bool:
             log.warning(f"No rows affected when deleting user ID: {user_id}")
             return False
             
-    except sqlite3.Error as e:
+    except sqlite3.Error:
         error_msg = f"Database error in {fu.get_function_name()}"
         log.error(error_msg, exc_info=True)
         raise
-    except Exception as e:
+    except Exception:
         error_msg = f"Unexpected error in {fu.get_function_name()}"
         log.error(error_msg, exc_info=True)
         raise
@@ -1061,11 +1061,11 @@ def insert_member(member_data: Dict[str, Any]) -> int:
             else:
                 log.debug(f"Failed to insert member: {member_data['name']} (ID: {member_data['id']})")
                 return 0
-    except sqlite3.Error as e:
+    except sqlite3.Error:
         error_msg = f"Database error in {fu.get_function_name()}"
         log.error(error_msg, exc_info=True)
         raise
-    except Exception as e:
+    except Exception:
         error_msg = f"Unexpected error in {fu.get_function_name()}"
         log.error(error_msg, exc_info=True)
         raise
@@ -1199,11 +1199,11 @@ def add_or_update_member(member_data: Dict[str, Any], update: bool = False) -> i
         log.error("%s", error_msg, exc_info=e)
         raise ValueError(error_msg) from e
         
-    except sqlite3.Error as e:
+    except sqlite3.Error:
         error_msg = f"Database error in {fu.get_function_name()}"
         log.error(error_msg, exc_info=True)
         raise
-    except Exception as e:
+    except Exception:
         error_msg = f"Unexpected error in {fu.get_function_name()}"
         log.error(error_msg, exc_info=True)
         raise
@@ -1353,11 +1353,11 @@ def add_related_member(
         log.error(f"{error_msg}: {str(e)}")
         raise ValueError(error_msg) from e
         
-    except sqlite3.Error as e:
+    except sqlite3.Error:
         error_msg = f"Database error in {fu.get_function_name()}: adding related member"
         log.error(error_msg, exc_info=True)
         raise
-    except Exception as e:
+    except Exception:
         error_msg = f"Unexpected error in {fu.get_function_name()}: adding related member"
         log.error(error_msg, exc_info=True)
 
@@ -1544,11 +1544,11 @@ def get_members() -> List[Dict[str, Any]]:
             log.debug(f"Retrieved {len(members)} members from database")
             return members
             
-    except sqlite3.Error as e:
+    except sqlite3.Error:
         error_msg = f"Database error in {fu.get_function_name()}: while fetching members"
         log.error(error_msg, exc_info=True)
         raise
-    except Exception as e:
+    except Exception:
         error_msg = f"Unexpected error in {fu.get_function_name()}: while fetching members"
         log.error(error_msg, exc_info=True)
         raise
@@ -1605,15 +1605,15 @@ def get_member_by_email(email: str) -> Optional[Dict[str, Any]]:
                 return dict(zip(columns, member))
             return None
             
-    except sqlite3.Error as e:
+    except sqlite3.Error:
         error_msg = f"Database error in {fu.get_function_name()}: while fetching member by email"
         log.error(error_msg, exc_info=True)
         raise
-    except ValueError as ve:
+    except ValueError:
         error_msg = "Invalid email address provided"
         log.error(error_msg)
         raise ValueError(error_msg)
-    except Exception as e:
+    except Exception:
         error_msg = f"Unexpected error in {fu.get_function_name()}: while fetching member by email"
         log.error(error_msg, exc_info=True)
         raise
@@ -1673,79 +1673,15 @@ def get_member(member_id: int) -> Optional[Dict[str, Any]]:
             log.debug(f"No member found with ID: {member_id}")
             return None
             
-    except sqlite3.Error as e:
+    except sqlite3.Error:
         error_msg = f"Database error in {fu.get_function_name()}: fetching member ID {member_id}"
         log.error(error_msg, exc_info=True)
         raise
-    except Exception as e:
+    except Exception:
         error_msg = f"Unexpected error in {fu.get_function_name()}: fetching member ID {member_id}"
         log.error(error_msg, exc_info=True)
         raise
 
-def get_family(family_id: int) -> Optional[Dict[str, Any]]:
-    """
-    Retrieve a family record given by unique family ID.
-    
-    This function fetches all available information for a specific family record 
-    from the database.
-    
-    Args:
-        family_id: The unique identifier of the family to retrieve 
-        (must be a positive integer)
-        
-    Returns:
-        Optional[Dict[str, Any]]: A dictionary containing the 
-        family's data if found, None if no family exists with the 
-        given ID. The dictionary includes all the fields from the 
-        db_tables['families'] table.
-            
-    Raises:
-        ValueError: If family_id is not a positive integer
-        sqlite3.Error: If a database error occurs
-        
-    Example:
-        >>> family = get_family(123)
-        >>> if family:
-        ...     print(f"Found family: {family['family_name']}")
-        ... else:
-        ...     print("Family not found")
-    """
-    # Validate input
-    if not isinstance(family_id, int) or family_id <= 0:
-        error_msg = f"Invalid family ID: {family_id}. Must be a positive integer."
-        log.error(error_msg)
-        raise ValueError(error_msg)
-    
-    try:
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            
-            # Query the database for the family
-            cursor.execute(f"""
-                SELECT * FROM {db_tables['families']}
-                WHERE id = ?
-                LIMIT 1
-            """, (family_id,))
-            
-            # Fetch the result and convert to dictionary if found
-            result = cursor.fetchone()
-            
-            if result:
-                family_data = dict(result)
-                log.debug(f"Retrieved family ID {family_id}: {family_data.get('family_name')}")
-                return family_data
-                
-            log.debug(f"No family found with ID: {family_id}")
-            return None
-            
-    except sqlite3.Error as e:
-        error_msg = f"Database error in {fu.get_function_name()}: fetching family ID {family_id}"
-        log.error(error_msg, exc_info=True)
-        raise
-    except Exception as e:
-        error_msg = f"Unexpected error in {fu.get_function_name()}: fetching family ID {family_id}"
-        log.error(error_msg, exc_info=True)
-        raise
 
 def get_families_by_name(name):
     """
@@ -1806,11 +1742,11 @@ def get_families_by_name(name):
             
         return families
         
-    except sqlite3.Error as e:
+    except sqlite3.Error:
         error_msg = f"❌ Database error in {fu.get_function_name()}"
         log.error(error_msg, exc_info=True)
         raise
-    except Exception as e:
+    except Exception:
         error_msg = f"❌ Unexpected error in {fu.get_function_name()}"
         log.error(error_msg, exc_info=True)
         raise
@@ -1873,80 +1809,15 @@ def get_families_by_background(background: str) -> List[Dict[str, Any]]:
             
         return families
         
-    except sqlite3.Error as e:
+    except sqlite3.Error:
         error_msg = f"❌ Database error in {fu.get_function_name()}"
         log.error(error_msg, exc_info=True)
         raise
-    except Exception as e:
+    except Exception:
         error_msg = f"❌ Unexpected error in {fu.get_function_name()}"
         log.error(error_msg, exc_info=True)
         raise
 
-def get_relation(relation_id: int) -> Optional[Dict[str, Any]]:
-    """
-    Retrieve a relation record given by unique relation ID.
-    
-    This function fetches all available information for a specific relation record 
-    from the database.
-    
-    Args:
-        relation_id: The unique identifier of the relation to retrieve 
-        (must be a positive integer)
-        
-    Returns:
-        Optional[Dict[str, Any]]: A dictionary containing the relation's data if found, 
-        None if no relation exists with the given ID. 
-        The dictionary includes all the fields from the relations table.
-            
-    Raises:
-        ValueError: If relation_id is not a positive integer
-        sqlite3.Error: If a database error occurs
-        
-    Example:
-        >>> relation = get_relation(123)
-        >>> if relation:
-        ...     print(f"Found relation between member {relation['member1_id']} and {relation['member2_id']}")
-        ... else:
-        ...     print("Relation not found")
-    """
-    # Validate input
-    if not isinstance(relation_id, int) or relation_id < 0:
-        error_msg = f"Invalid ID to search for relation_id: {relation_id}. Must be a positive integer."
-        log.error(error_msg)
-        raise ValueError(error_msg)
-    
-    try:
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            
-            # Query the database for the relation
-            cursor.execute(f"""
-                SELECT * FROM {db_tables['relations']}
-                WHERE id = ?
-                LIMIT 1
-            """, (relation_id,))
-            
-            # Fetch the first result and convert to dictionary if found
-            result = cursor.fetchone()
-            
-            if result:
-                # Get column names from cursor description
-                columns = [col[0] for col in cursor.description]
-                relation_data = dict(zip(columns, result))
-                log.debug(f"Retrieved relation for relation_id {relation_id}")
-                return relation_data
-                
-            log.debug(f"No relation found with relation_id {relation_id}")
-            return None
-            
-    except sqlite3.Error as e:
-        error_msg = f"Database error in {fu.get_function_name()}: fetching relation with relation_id {relation_id}"
-        log.error(error_msg, exc_info=True)
-        raise
-    except Exception as e:
-        error_msg = f"Unexpected error in {fu.get_function_name()}: fetching relation with relation_id {relation_id}"
-        log.error(error_msg, exc_info=True)
-        raise
 
 def get_relations_by_id(member_id: int,
                         relation: str = None,
@@ -2019,11 +1890,11 @@ def get_relations_by_id(member_id: int,
             
             return relations
             
-    except sqlite3.Error as e:
+    except sqlite3.Error:
         error_msg = f"Database error in {fu.get_function_name()}: fetching relation with either member_id or partner_id is {member_id}"
         log.error(error_msg, exc_info=True)
         raise
-    except Exception as e:
+    except Exception:
         error_msg = f"Unexpected error in {fu.get_function_name()}: fetching relation with either member_id or partner_id is {member_id}"
         log.error(error_msg, exc_info=True)
         raise
@@ -2081,11 +1952,11 @@ def get_relations_by_relation(relation_type: str) -> List[Dict[str, Any]]:
             
         return relations
         
-    except sqlite3.Error as e:
+    except sqlite3.Error:
         error_msg = f"❌ Database error in {fu.get_function_name()}"
         log.error(error_msg, exc_info=True)
         raise
-    except Exception as e:
+    except Exception:
         error_msg = f"❌ Unexpected error in {fu.get_function_name()}"
         log.error(error_msg, exc_info=True)
         raise
@@ -2152,11 +2023,11 @@ def get_relations_by_join_between(from_date: str, to_date: str) -> List[Dict[str
             
         return relations
         
-    except sqlite3.Error as e:
+    except sqlite3.Error:
         error_msg = f"❌ Database error in {fu.get_function_name()}"
         log.error(error_msg, exc_info=True)
         raise
-    except Exception as e:
+    except Exception:
         error_msg = f"❌ Unexpected error in {fu.get_function_name()}"
         log.error(error_msg, exc_info=True)
         raise
@@ -2250,11 +2121,11 @@ def update_member(member_id: int, update_data: Dict[str, Any]) -> bool:
         log.error(f"{error_msg}: {str(e)}")
         raise ValueError(error_msg) from e
         
-    except sqlite3.Error as e:
+    except sqlite3.Error:
         error_msg = f"Database error in {fu.get_function_name()}: updating member ID {member_id}"
         log.error(error_msg, exc_info=True)
         raise
-    except Exception as e:
+    except Exception:
         error_msg = f"Unexpected error in {fu.get_function_name()}: updating member ID {member_id}"
         log.error(error_msg, exc_info=True)
         raise
@@ -2330,11 +2201,11 @@ def delete_member(member_id: int) -> bool:
         log.error(f"{error_msg} Member ID: {member_id}, Error: {str(e)}")
         raise ValueError(error_msg) from e
         
-    except sqlite3.Error as e:
+    except sqlite3.Error:
         error_msg = f"Database error in {fu.get_function_name()}: deleting member ID {member_id}"
         log.error(error_msg, exc_info=True)
         raise
-    except Exception as e:
+    except Exception:
         error_msg = f"Unexpected error in {fu.get_function_name()}: deleting member ID {member_id}"
         log.error(error_msg, exc_info=True)
         raise
@@ -2397,11 +2268,11 @@ def get_members_when_born_in(month: int) -> List[Dict[str, Any]]:
             
             return members
             
-    except sqlite3.Error as e:
+    except sqlite3.Error:
         error_msg = f"Database error in {fu.get_function_name()}: Querying members born in month {month} failed"
         log.error(error_msg, exc_info=True)
         raise
-    except Exception as e:
+    except Exception:
         error_msg = f"Unexpected error in {fu.get_function_name()}: Querying members born in month {month} failed"
         log.error(error_msg, exc_info=True)
         raise
@@ -2621,11 +2492,11 @@ def search_members(
             
             return results
             
-    except sqlite3.Error as e:
+    except sqlite3.Error:
         error_msg = f"Database error in {fu.get_function_name()}: during member search"
         log.error(error_msg, exc_info=True)
         raise
-    except Exception as e:
+    except Exception:
         error_msg = f"Unexpected error in {fu.get_function_name()}: during member search"
         log.error(error_msg, exc_info=True)
         raise
@@ -2686,11 +2557,11 @@ def get_member_relations(member_id: int) -> List[Dict[str, Any]]:
             log.debug(f"Found {len(results)} relationships for member {member_id}")
             return results
             
-    except sqlite3.Error as e:
+    except sqlite3.Error:
         error_msg = f"Database error in {fu.get_function_name()}: retrieving relationships for member {member_id}"
         log.error(error_msg, exc_info=True)
         raise
-    except Exception as e:
+    except Exception:
         error_msg = f"Unexpected error in {fu.get_function_name()}: retrieving relationships"
         log.error(error_msg, exc_info=True)
         raise
@@ -3016,11 +2887,11 @@ def get_relations() -> List[Dict[str, Any]]:
             log.debug(f"Retrieved {len(relations)} relations from database")
             return relations
             
-    except sqlite3.Error as e:
+    except sqlite3.Error:
         error_msg = f"Database error in {fu.get_function_name()}: while fetching relations"
         log.error(error_msg, exc_info=True)
         raise
-    except Exception as e:
+    except Exception:
         error_msg = f"Unexpected error in {fu.get_function_name()}: while fetching relations"
         log.error(error_msg, exc_info=True)
         raise
@@ -3092,11 +2963,11 @@ def insert_relation(relation_data: Dict[str, Any]) -> int:
                 log.debug(f"Relation {relation_data['id']} not inserted.")
                 return 0
             
-    except sqlite3.Error as e:
+    except sqlite3.Error:
         error_msg = f"Database error in {fu.get_function_name()}: Error inserting relation"
         log.error(error_msg, exc_info=True)
         raise
-    except Exception as e:
+    except Exception:
         error_msg = f"Unexpected error in {fu.get_function_name()}: Error inserting relation"
         log.error(error_msg, exc_info=True)
         raise
@@ -3233,11 +3104,11 @@ def add_or_update_relation(relation_data: Dict[str, Any], update: bool = False) 
             log.debug(f"Added new relationship record ID: {relation_id}")
             return relation_id
             
-    except sqlite3.Error as e:
+    except sqlite3.Error:
         error_msg = f"Error in {fu.get_function_name()}"
         log.error(error_msg, exc_info=True)
         raise
-    except Exception as e:
+    except Exception:
         error_msg = f"Unexpected error in {fu.get_function_name()}"
         log.error(error_msg, exc_info=True)
         raise
@@ -3298,12 +3169,12 @@ def delete_relation(relation_id: int) -> bool:
                 log.warning(f"No relation found with ID {relation_id} (Member: {member_id}, Partner: {partner_id}, Type: {relation_type})")
                 return False
                 
-    except sqlite3.Error as e:
-        error_msg = f"Database error in delete_relation"
+    except sqlite3.Error:
+        error_msg = "Database error in delete_relation"
         log.error(error_msg, exc_info=True)
         raise
-    except Exception as e:
-        error_msg = f"Unexpected error in delete_relation"
+    except Exception:
+        error_msg = "Unexpected error in delete_relation"
         log.error(error_msg, exc_info=True)
         raise
 
@@ -3369,11 +3240,11 @@ def get_families() -> List[Dict[str, Any]]:
             log.debug(f"Retrieved {len(families)} families from database")
             return families
             
-    except sqlite3.Error as e:
+    except sqlite3.Error:
         error_msg = f"Database error in {fu.get_function_name()}: while fetching families"
         log.error(error_msg, exc_info=True)
         raise
-    except Exception as e:
+    except Exception:
         error_msg = f"Unexpected error in {fu.get_function_name()}: while fetching families"
         log.error(error_msg, exc_info=True)
         raise
@@ -3426,7 +3297,7 @@ def insert_family(family_data: Dict[str, Any]) -> int:
             else:
                 log.debug(f"Family {family_data['name']} not inserted.")
                 return 0
-    except sqlite3.Error as e:
+    except sqlite3.Error:
         error_msg = f"Database error in {fu.get_function_name()}: Error inserting family"
         log.error(error_msg, exc_info=True)
         raise
@@ -3552,11 +3423,11 @@ def add_or_update_family(family_data: Dict[str, Any], update: bool = False) -> i
         log.error(f"{error_msg}: {str(e)}")
         raise ValueError(error_msg) from e
         
-    except sqlite3.Error as e:
+    except sqlite3.Error:
         error_msg = f"Error in {fu.get_function_name()}"
         log.error(error_msg, exc_info=True)
         raise
-    except Exception as e:
+    except Exception:
         error_msg = f"Unexpected error in {fu.get_function_name()}"
         log.error(error_msg, exc_info=True)
         raise
@@ -3615,11 +3486,11 @@ def delete_family(family_id: int) -> bool:
             log.warning(f"No rows affected when deleting family: {family_id}")
             return False
             
-    except sqlite3.Error as e:
+    except sqlite3.Error:
         error_msg = f"Database error in {fu.get_function_name()}"
         log.error(error_msg, exc_info=True)
         raise
-    except Exception as e:
+    except Exception:
         error_msg = f"Unexpected error in {fu.get_function_name()}"
         log.error(error_msg, exc_info=True)
         raise
@@ -3656,11 +3527,11 @@ def get_mirrors() -> List[Dict[str, Any]]:
             log.debug(f"Retrieved {len(mirrors)} mirrors from database")
             return mirrors
             
-    except sqlite3.Error as e:
+    except sqlite3.Error:
         error_msg = f"Database error in {fu.get_function_name()}: while fetching mirrors"
         log.error(error_msg, exc_info=True)
         raise
-    except Exception as e:
+    except Exception:
         error_msg = f"Unexpected error in {fu.get_function_name()}: while fetching mirrors"
         log.error(error_msg, exc_info=True)
         raise
@@ -3691,7 +3562,7 @@ def import_users(users: List[Dict[str, Any]]) -> Dict[str, Any]:
     required_fields = ['id', 'email', 'password_hash', 'salt']
 
     with get_db_connection() as conn:
-        cursor = conn.cursor()
+        conn.cursor()
     
         for i, user in enumerate(users, 1):
             try:
@@ -3722,7 +3593,7 @@ def import_users(users: List[Dict[str, Any]]) -> Dict[str, Any]:
                 if user_id > 0:
                     imported += 1
                 else:
-                    errors.append(f"User {i} ({user.get('email', 'unknown')}): {message}")
+                    errors.append(f"User {i} ({user.get('email', 'unknown')}): insert failed")
                     skipped += 1
             
             except Exception as e:
@@ -3767,7 +3638,7 @@ def import_members(members: List[Dict[str, Any]]) -> Dict[str, Any]:
     required_fields = ['id', 'name', 'born', 'gen_order']
     
     with get_db_connection() as conn:
-        cursor = conn.cursor()
+        conn.cursor()
         
         for i, member in enumerate(members, 1):
             try:
@@ -3847,7 +3718,7 @@ def import_relations(relations: List[Dict[str, Any]]) -> Dict[str, Any]:
     required_fields = ['id', 'member_id', 'partner_id', 'relation']
     
     with get_db_connection() as conn:
-        cursor = conn.cursor()
+        conn.cursor()
         
         for i, rel in enumerate(relations, 1):
             try:
@@ -3920,7 +3791,7 @@ def import_families(families: List[Dict[str, Any]]) -> Dict[str, Any]:
     required_fields = ['id', 'name']
     
     with get_db_connection() as conn:
-        cursor = conn.cursor()
+        conn.cursor()
         
         for i, family in enumerate(families, 1):
             try:

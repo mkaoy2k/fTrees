@@ -12,7 +12,6 @@ This module handles authentication-related functions to avoid circular imports.
 import logging
 import hmac
 import re
-import streamlit as st
 import sqlite3
 import hashlib
 import secrets
@@ -464,13 +463,11 @@ def create_user (email,
             """, (email,))
             
             existing_user = cursor.fetchone()
-            if role == dbm.User_State['p_admin']:
-                sub_state = dbm.Subscriber_State['active']
-            elif role == dbm.User_State['f_admin']:
-                sub_state = dbm.Subscriber_State['active']
-            elif role == dbm.User_State['f_member']:
-                sub_state = dbm.Subscriber_State['inactive']
-            else:
+            if role not in (
+                dbm.User_State['p_admin'],
+                dbm.User_State['f_admin'],
+                dbm.User_State['f_member'],
+            ):
                 raise ValueError("Invalid role")
             if existing_user:
                 # Update existing user
@@ -517,6 +514,6 @@ def create_user (email,
                 conn.commit()
                 user_id = cursor.lastrowid
                 return user_id
-    except sqlite3.Error as e:
+    except sqlite3.Error:
         raise
 

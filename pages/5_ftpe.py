@@ -207,7 +207,7 @@ def build_spouse_graph(dbuff):
                 # loop thru the list of kids
                 for k in kids.Name:
                     # Filter 用法錯誤，不能直接使用 @dbuff["Name"]
-                    d_name = dbuff["Name"]
+                    dbuff["Name"]
                     filter = "Name == @k and Dad == @d_name and Mom == @w"
                     logger.debug(f"Search for right kid: {filter}")
                     rec_k = all_members.query(filter)
@@ -362,9 +362,9 @@ def display_dad(dmem):
     filter_dad = "Dad == @mem"
 
     # any adopted-Dads?
-    if adopt_members.empty != True:
+    if not adopt_members.empty:
         dads = adopt_members.query(filter)
-        if dads.empty != True:
+        if not dads.empty:
             # display adopted-Dads
             # need to iterate dataframe
             for idx in dads.index:
@@ -372,9 +372,9 @@ def display_dad(dmem):
                 st.markdown(f"#### => {g_loc['DAD']}({g_loc['REL_ADOPT']}): {name}")
 
     # any adopted-Kids?
-    if adopt_members.empty != True:
+    if not adopt_members.empty:
         kids = adopt_members.query(filter_dad)
-        if kids.empty != True:
+        if not kids.empty:
             # display adopted-kids
             # need to iterate dataframe
             for idx in kids.index:
@@ -382,9 +382,9 @@ def display_dad(dmem):
                 st.markdown(f"#### => {g_loc['KID']}({g_loc['REL_ADOPT']}): {name}")
 
     # any step-Dads?
-    if step_members.empty != True:
+    if not step_members.empty:
         dads = step_members.query(filter)
-        if dads.empty != True:
+        if not dads.empty:
             # display step-Dads
             # need to iterate dataframe
             for idx in dads.index:
@@ -392,9 +392,9 @@ def display_dad(dmem):
                 st.markdown(f"#### => {g_loc['DAD']}({g_loc['REL_STEP']}): {name}")
 
     # any step-Kids?
-    if step_members.empty != True:
+    if not step_members.empty:
         kids = step_members.query(filter_dad)
-        if kids.empty != True:
+        if not kids.empty:
             # display step-kids
             # need to iterate dataframe
             for idx in kids.index:
@@ -470,9 +470,9 @@ def display_mom(dmem):
 
     # Any adopted-Moms?
     # any adopted-Moms?
-    if adopt_members.empty != True:
+    if not adopt_members.empty:
         moms = adopt_members.query(filter)
-        if moms.empty != True:
+        if not moms.empty:
             # Display adopted-Moms
             # Need to iterate dataframe
             # display adopted-Moms
@@ -489,9 +489,9 @@ def display_mom(dmem):
             #     st.markdown(f"#### => {g_loc['MOM']}({g_loc['REL_ADOPT']}): {mom_name}")
 
     # any adopted-Kids?
-    if adopt_members.empty != True:
+    if not adopt_members.empty:
         kids = adopt_members.query(filter_mom)
-        if kids.empty != True:
+        if not kids.empty:
             # Display adopted-kids
             # Need to iterate dataframe
             # display adopted-kids
@@ -501,9 +501,9 @@ def display_mom(dmem):
                 st.markdown(f"#### => {g_loc['KID']}({g_loc['REL_ADOPT']}): {name}")
 
     # Any step-Moms?
-    if step_members.empty != True:
+    if not step_members.empty:
         moms = step_members.query(filter)
-        if moms.empty != True:
+        if not moms.empty:
             # display step-Moms
             for idx in moms.index:
                 name = moms["Mom"][idx]
@@ -517,9 +517,9 @@ def display_mom(dmem):
             #     st.markdown(f"#### => {g_loc['MOM']}({g_loc['REL_STEP']}): {mom_name}")
 
     # any step-Kids?
-    if step_members.empty != True:
+    if not step_members.empty:
         kids = step_members.query(filter_mom)
-        if kids.empty != True:
+        if not kids.empty:
             # Display step-kids
             # Need to iterate dataframe
             # display step-kids
@@ -545,7 +545,7 @@ def display_spouse(dmem):
     global all_members
     global g_loc
 
-    mem = dmem["Name"]
+    dmem["Name"]
     born = dmem["Born"]
     sp_name = dmem["Spouse"]
     married = dmem["Married"]
@@ -802,7 +802,7 @@ def get_gen(gen_begin, num):
     Raises:
         FileNotFoundError: 當找不到資料時
     """
-    gen_end = gen_begin + num
+    gen_begin + num
 
     filter = "Order >= @gen_begin and Order <= @gen_end"
     target_members = all_members.query(filter)
@@ -964,7 +964,7 @@ def main_page(nav, lname_idx):
                 load_buff(gbuff["Name"], gbuff["Born"], g_dirtyTree)
 
                 dot = build_spouse_graph(gbuff)
-            except:
+            except Exception:
                 st.error(f"❌ {g_loc['MEMBER_NOT_FOUND']}")
                 return
 
@@ -972,7 +972,7 @@ def main_page(nav, lname_idx):
             logger.debug(dot.source)
             st.graphviz_chart(dot, use_container_width=True)
 
-        except:
+        except Exception:
             st.warning(f"⚠️ {g_loc['MEMBER_NOT_FOUND']}")
             # continue to adjust sliders
 
@@ -1051,7 +1051,7 @@ def main_page(nav, lname_idx):
                         f"#### {g_loc['GEN_ORDER']}: {order} {g_loc['MEMBER']} {g_loc['INDEX']}:{idx} {mem}({born},{sex})"
                     )
                     break
-            except:
+            except Exception:
                 st.error(f"❌ {g_loc['MENU_QUERY_3G_BY_MALE']} {g_loc['QUERY']} {g_loc['FAILED']}")
                 return
 
@@ -1061,7 +1061,7 @@ def main_page(nav, lname_idx):
             st.success(
                 f"{g_loc['MENU_QUERY_3G_BY_MALE']} {g_loc['QUERY']} {g_loc['DONE']}"
             )
-        except:
+        except Exception:
             st.warning(f"⚠️ {g_loc['MEMBER_NOT_FOUND']}")
             # continue to adjust sliders
 
@@ -1082,9 +1082,9 @@ def main_page(nav, lname_idx):
                 st.write(f"{g_loc['MENU_MEMBER_ADD']}: {gbuff['Name']}")
 
                 # create a dict object with list values from buffer 'gbuff'
-                # to_add = {key: [value] for key, value in gbuff.items()}
+                to_add = {}
                 for key, value in gbuff.items():
-                    if type(value) == str & value == "":
+                    if isinstance(value, str) and value == "":
                         value = "?"
 
                     to_add[key] = [value]
@@ -1101,7 +1101,7 @@ def main_page(nav, lname_idx):
                     os.environ["DIRTY_TREE"] = str(time.time())
                     load_buff(gbuff["Name"], gbuff["Born"], g_dirtyTree)
 
-                except:
+                except Exception:
                     st.error(f"❌ {g_loc['MENU_MEMBER_ADD']}: {gbuff['Name']} {g_loc['ADD']} {g_loc['FAILED']}")
         return
 
@@ -1126,7 +1126,7 @@ def main_page(nav, lname_idx):
         try:
             # safe guard in case that person not found
             rcd = g_df.iloc[idx]
-        except:
+        except Exception:
             st.error(f"❌ {g_loc['MEMBER_NOT_FOUND']}")
             return
 
@@ -1167,7 +1167,7 @@ def main_page(nav, lname_idx):
                         st.success(
                             f"{g_loc['MEMBER']} {g_loc['INDEX']}: {idx} {gbuff['Name']} {g_loc['UPDATE']} {g_loc['DONE']}"
                         )
-                    except:
+                    except Exception:
                         st.error(f"❌ {g_loc['MEMBER']} {g_loc['UPDATE']} {g_loc['FAILED']}")
         with btn2:
             if st.button(g_loc["B4_MEMBER_DELETE"]):
@@ -1181,7 +1181,7 @@ def main_page(nav, lname_idx):
                         os.environ["DIRTY_TREE"] = str(time.time())
 
                         st.success(f"{g_loc['MEMBER']} {g_loc['INDEX']}: {idx} {gbuff['Name']} {g_loc['DELETE']} {g_loc['DONE']}")
-                    except:
+                    except Exception:
                         st.error(f"❌ {g_loc['MEMBER']} {g_loc['DELETE']} {g_loc['FAILED']}")
         gbuff_idx = idx
         return
@@ -1292,7 +1292,7 @@ def main_page(nav, lname_idx):
             st.table(g1_members)
             load_buff(gbuff["Name"], gbuff["Born"], g_dirtyTree)
             st.success(f"{g_loc['MENU_QUERY_TBL_BY_1GEN']} {g_loc['DONE']}")
-        except:
+        except Exception:
             st.error(f"❌ {g_loc['MENU_QUERY_TBL_BY_1GEN']} {g_loc['FAILED']}")
         return
 
@@ -1340,7 +1340,7 @@ def main_page(nav, lname_idx):
                     st.markdown("---")
                     gbuff = dmem.copy()
                 st.success(f"{rec_name} {g_loc['MENU_QUERY_3G_BY_NAME']} {g_loc['DONE']}")
-            except:
+            except Exception:
                 st.error(f"❌ {rec_name} {g_loc['MENU_QUERY_3G_BY_NAME']} {g_loc['FAILED']}")
         return
 
@@ -1374,7 +1374,7 @@ def main_page(nav, lname_idx):
             st.markdown(f"{g_loc['HEAD_COUNT_SELECTED']}{len(g3_members.index)}")
             st.table(g3_members)
             st.success(f"{g_loc['MENU_QUERY_TBL_BY_3GEN']} {g_loc['DONE']}")
-        except:
+        except Exception:
             st.error(f"❌ {g_loc['MENU_QUERY_TBL_BY_3GEN']} {g_loc['FAILED']}")
         return
 
@@ -1464,7 +1464,7 @@ def main_page(nav, lname_idx):
                     # force to create a new tree cache upon return
                     os.environ["DIRTY_TREE"] = str(time.time())
 
-                except:
+                except Exception:
                     st.error(f"❌ {g_loc['BX_IMPORT']} {g_loc['FAILED']}")
     return
 
@@ -1589,8 +1589,8 @@ def load_male_members(members, base=None):
     )
 
     # sorted by birth-year in accending order.
-    male1 = g_lsex.index(g_loc["SEX_MALE"])
-    male2 = g_lsex.index(g_loc["SEX_INLAW_MALE"])
+    g_lsex.index(g_loc["SEX_MALE"])
+    g_lsex.index(g_loc["SEX_INLAW_MALE"])
 
     m_members = m_members.query("Sex == @male1 or Sex == @male2").sort_values(
         by=["Order", "Born", "Name"]
@@ -1664,6 +1664,7 @@ def load_user_l10n(base=None):
 
 # Initialize session state
 cu.init_session_state()
+cu.apply_ui_preferences()
     
 # Check authentication
 if not st.session_state.get('authenticated', False):
@@ -1838,7 +1839,7 @@ else:
         # initialize a global member index, 'gbuff_idx' as template.
         # initialize a global dict obj, 'gbuff' as template.
         gbuff_idx, gbuff = fu.get_1st_mbr_dict(g_df, mem, born, base=g_dirtyTree)
-    except:
+    except Exception:
         # force to create a new tree cache upon loop-back
         os.environ["DIRTY_TREE"] = str(time.time())
         st.warning(f"⚠️ {g_loc['MEMBER_NOT_REG']}")

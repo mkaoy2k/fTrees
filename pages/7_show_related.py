@@ -12,7 +12,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 import pyvis.network as net
 import logging
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Any
 import db_utils as dbm
 import context_utils as cu
 import funcUtils as fu
@@ -346,6 +346,7 @@ def main():
 # Initialize session state and UI_TEXTS
 if 'app_context' not in st.session_state:
     cu.init_session_state()
+cu.apply_ui_preferences()
 
 # Get UI_TEXTS with a fallback to English if needed
 try:
