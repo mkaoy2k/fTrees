@@ -11,10 +11,9 @@
 
 # FamilyTrees Data files
 data/*
-!data/template.csv
-!data/me.sample.csv
-# Local databases, account exports, and the personal tree.
-# These must never be committed.
+# Local databases and account exports. These must never be committed.
+# A personal-edition me.csv on a machine stays local. The sample tree
+# and CSV template live in archive/personal-edition/.
 data/*.db
 data/users.json
 data/me.csv

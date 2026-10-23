@@ -2,11 +2,11 @@
 
 ## Introduction
 
-FamilyTrees (`fTrees`) is a web application, written in Python, that lets you record your family tree and connect it with other family trees. It is an extension of the FamilyTrees Personal Edition (`ftpe`).
+FamilyTrees (`fTrees`) is a web application, written in Python, that lets you record your family tree and connect it with other family trees. The personal edition (`ftpe.py`) is retired. Its fictional sample tree and CSV template are kept in `archive/personal-edition/`.
 
 ## How It Works
 
-`fTrees` stores members, relationships, and accounts in a local SQLite database. Family members can add and update records, then query them as tables or as a graph.
+`fTrees` stores members, relationships, and accounts in a local SQLite database. Family members can add and update records, then query them as tables or as an interactive graph. The three-generation graph is HTML embedded in the page. Each generation is one row, top to bottom, and the page does not export a PNG or SVG.
 
 1. _Sharing_: several people can maintain parts of the same tree and keep one shared database.
 
@@ -19,7 +19,6 @@ The application is licensed under the MIT License. See `LICENSE`.
 - Python 3.12 or newer (CI runs 3.12; the container image is Python 3.13)
 - SQLite 3 (included with Python)
 - An SMTP account if you send password-reset or birthday mail
-- The Graphviz `dot` program, only for the personal edition (`ftpe.py`)
 
 ### Installation
 
@@ -41,13 +40,13 @@ The application is licensed under the MIT License. See `LICENSE`.
 
 3. **Install dependencies**
 
-   Direct dependencies are declared in `pyproject.toml`. `requirements.txt` and `uv.lock` are the lockfile exported from that declaration. Pandas and Streamlit pull in numpy themselves. The Python `graphviz` package is required by `ftpe.py`.
+   Direct dependencies are declared in `pyproject.toml`. `requirements.txt` and `uv.lock` are the lockfile exported from that declaration. Pandas and Streamlit pull in numpy themselves. Graphs use `pyvis`.
 
    ```bash
    pip install -r requirements.txt
    ```
 
-   With conda, the environment file installs Python 3.12, the Graphviz `dot` program, and the same lockfile:
+   With conda, the environment file installs Python 3.12 and the same lockfile:
 
    ```bash
    conda env create -f environment.yaml
@@ -104,8 +103,10 @@ fTrees/
 ├── editor_paths.py       # CSV/JSON editor path checks
 ├── email_utils.py        # Email functionality
 ├── environment.yaml      # Conda env (uses the lockfile)
+├── archive/personal-edition/
+│   ├── me.sample.csv     # Retired fictional sample tree
+│   └── template.csv      # Retired CSV template
 ├── fTrees.py             # Main Streamlit app
-├── ftpe.py               # Personal edition (separate process)
 ├── funcUtils.py          # Utility functions
 ├── genesis.py            # Create the admin account
 ├── LICENSE               # MIT License
@@ -116,10 +117,7 @@ fTrees/
 ├── template.env.txt      # Environment template
 ├── bday.html             # Birthday template
 ├── data/                 # Local data (mostly untracked)
-│   ├── family.db         # Local database (not in git)
-│   ├── me.csv            # Local personal tree (not in git)
-│   ├── me.sample.csv     # Fictional sample tree
-│   └── template.csv      # CSV template
+│   └── family.db         # Local database (not in git)
 └── pages/                # Multipage screens for fTrees.py
     ├── 1_usrMgmt.py
     ├── 2_famMgmt.py
@@ -162,12 +160,8 @@ streamlit run fTrees.py
 
 Streamlit serves the login page at `http://localhost:8501`.
 
-The personal edition is a separate program. Run it with `streamlit run ftpe.py`. That process has its own session, so sign in again there even if `fTrees.py` is already open:
+The three-generation page and the relationship page draw interactive HTML in the page (`streamlit.components.v1.html` around a pyvis graph). Names in the hover text are escaped. The three-generation graph and the relationship graph each place a generation on its own row, smaller generation numbers above larger ones. There is no PNG or SVG download. Relationship edges stay gray and are labeled with the relation type.
 
-```bash
-streamlit run ftpe.py
-```
-
-`ftpe.py` reads `data/me.csv` on this machine. `data/me.sample.csv` is a fictional tree you can copy to `data/me.csv`. Rendering its graph needs the Graphviz `dot` program (`apt install graphviz`, `brew install graphviz`, or the conda environment above) in addition to the Python `graphviz` package.
+The retired personal-edition sample and CSV template are in `archive/personal-edition/`. A `data/me.csv` left on a machine is not read by this app and is not committed.
 
 Created by [Michael Kao](https://github.com/mkaoy2k/fTrees).

@@ -16,7 +16,7 @@ from typing import Dict, List, Any
 import db_utils as dbm
 import context_utils as cu
 import funcUtils as fu
-from graph_text import center_popup, related_popup, relation_popup
+from graph_text import center_popup, generation_level, related_popup, relation_popup
 from nav import render_sidebar, require_role
 
 # Configure logging
@@ -70,6 +70,7 @@ def get_relationship_data(member_id: int, relations: List[str]) -> Dict[str, Any
                 family_members.append({
                     'id': partner_id,
                     'name': partner.get('name', 'Unknown'),
+                    'gen_order': partner.get('gen_order'),
                     'relation': relation_type,
                     'relation_id': rel.get('id', ''),  # Add relation_id from the relations table
                     'join_date': rel.get('join_date', ''),
@@ -110,15 +111,22 @@ def get_inverse_relation(relation_type: str) -> str:
     relation = relation_map.get(relation_type.lower(), relation_type)
     return relation
 
+def relation_row_offset(relation_type: str) -> int:
+    """Relative row when a person has no stored generation."""
+    text = str(relation_type or "").lower()
+    if text.startswith("parent"):
+        return -1
+    if text.startswith("child"):
+        return 1
+    return 0
+
 def create_relationship_graph(relationship_data: Dict[str, Any]) -> net.Network:
     """
-    Create a Pyvis network diagram of the relationship tree.
-    
-    Args:
-        relationship_data: Dictionary containing relationship data
-        
-    Returns:
-        pyvis.network.Network: The generated relationship network
+    Create a Pyvis network of the relationships.
+
+    Each generation is one horizontal row, top to bottom, using the same
+    hierarchical layout as the three-generation graph. Physics is off so a
+    person stays on that row.
     """
     # Create a new network
     graph = net.Network(
@@ -129,23 +137,23 @@ def create_relationship_graph(relationship_data: Dict[str, Any]) -> net.Network:
         directed=True,
         notebook=False
     )
-    
-    # Configure physics and styling
+
+    # Same top-down rows as the three-generation graph. Edge labels stay gray.
     graph.set_options("""
     {
-      "physics": {
-        "forceAtlas2Based": {
-          "gravitationalConstant": -50,
-          "centralGravity": 0.01,
-          "springLength": 100,
-          "springConstant": 0.08
-        },
-        "maxVelocity": 50,
-        "solver": "forceAtlas2Based",
-        "timestep": 0.35,
-        "stabilization": {
-          "iterations": 150
+      "layout": {
+        "hierarchical": {
+          "enabled": true,
+          "direction": "UD",
+          "sortMethod": "directed",
+          "levelSeparation": 150,
+          "nodeSpacing": 180,
+          "treeSpacing": 200,
+          "shakeTowards": "roots"
         }
+      },
+      "physics": {
+        "enabled": false
       },
       "nodes": {
         "borderWidth": 2,
@@ -167,7 +175,9 @@ def create_relationship_graph(relationship_data: Dict[str, Any]) -> net.Network:
           "inherit": true
         },
         "smooth": {
-          "type": "continuous"
+          "type": "cubicBezier",
+          "forceDirection": "vertical",
+          "roundness": 0.4
         },
         "font": {
           "size": 12,
@@ -180,6 +190,7 @@ def create_relationship_graph(relationship_data: Dict[str, Any]) -> net.Network:
     
     center = relationship_data.get('center', {})
     family_members = relationship_data.get('family_members', [])
+    center_level = generation_level(center, 0)
     
     # Add center node
     center_id = str(center.get('id', 'unknown'))
@@ -190,6 +201,7 @@ def create_relationship_graph(relationship_data: Dict[str, Any]) -> net.Network:
         center_id,
         label=center_label,
         title=center_popup(center_name),
+        level=center_level,
         color={
             'background': '#ffffe0',  # Light yellow for center
             'border': '#ffd700'       # Gold border
@@ -208,10 +220,12 @@ def create_relationship_graph(relationship_data: Dict[str, Any]) -> net.Network:
         
         # Create family member node
         family_member_label = f"{family_member_id}: {family_member_name}"
+        fallback = center_level + relation_row_offset(relation_type)
         graph.add_node(
             family_member_id,
             label=family_member_label,
             title=related_popup(family_member_name, relation_type),
+            level=generation_level(family_member, fallback),
             color={
                 'background': '#f0f8ff',  # Light blue background
                 'border': '#4682b4'      # Steel blue border
@@ -307,22 +321,22 @@ def main():
                                     st.markdown(f"**Ended:** {partner['end_date']}")
                             st.markdown("---")
 
-# Initialize session state and UI_TEXTS
-if 'app_context' not in st.session_state:
-    cu.init_session_state()
-cu.apply_ui_preferences()
-
-UI_TEXTS = fu.session_texts()
-
-# Check authentication
-if not st.session_state.get('authenticated', False):
-    st.switch_page("fTrees.py")
-else:
-    require_role(
-        dbm.User_State['p_admin'],
-        dbm.User_State['f_admin'],
-        dbm.User_State['f_member'],
-    )
+# Streamlit runs this file as __main__. Importing it for tests does not draw the page.
+if __name__ == "__main__":
     if 'app_context' not in st.session_state:
-        st.session_state.app_context = cu.init_context()
-    main()
+        cu.init_session_state()
+    cu.apply_ui_preferences()
+
+    UI_TEXTS = fu.session_texts()
+
+    if not st.session_state.get('authenticated', False):
+        st.switch_page("fTrees.py")
+    else:
+        require_role(
+            dbm.User_State['p_admin'],
+            dbm.User_State['f_admin'],
+            dbm.User_State['f_member'],
+        )
+        if 'app_context' not in st.session_state:
+            st.session_state.app_context = cu.init_context()
+        main()

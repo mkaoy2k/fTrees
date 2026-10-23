@@ -202,38 +202,6 @@ def load_L10N(base=None):
     
     return dl10n
 
-@st.cache_data(ttl=300)
-def get_1st_mbr_dict(df, mem, born, base=None):
-    """
-    Find the first record in the DataFrame that matches the given conditions
-    
-    Args:
-        df (pd.DataFrame): DataFrame to search
-        mem (str): Member name
-        born (int): Birth year
-        base (str, optional): Base directory
-    
-    Returns:
-        tuple: (index, member_dict)
-            index: Record index
-            member_dict: Member data dictionary
-    
-    Raises:
-        FileNotFoundError: If no record matches the given conditions
-    """
-    filter = "Name == @mem and Born == @born"
-    try:
-        rec = df.query(filter)
-        if rec.empty:
-            raise FileNotFoundError("No record matches the given conditions")
-    except Exception:
-        raise
-    
-    # Remove duplicate records, keep only the first one
-    rec = rec[0:1]
-    idx, member = rec.to_dict('index').popitem()
-    return idx, member
-
 # Helper function to format timestamps
 def format_timestamp(ts) -> str:
     """

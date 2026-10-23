@@ -24,8 +24,6 @@ colorama==0.4.6 ; sys_platform == 'win32'
     # via ipython
 executing==2.3.0
     # via stack-data
-graphviz==0.21
-    # via ftrees
 h11==0.16.0
     # via uvicorn
 idna==3.20

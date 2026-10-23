@@ -22,7 +22,7 @@ import funcUtils as fu
 # Import database utilities
 import db_utils as dbm
 from fTrees import UI_TEXTS
-from graph_text import member_popup
+from graph_text import generation_level, member_popup
 from nav import render_sidebar, require_role
 
 # Load environment variables
@@ -83,32 +83,22 @@ def get_family_members(member_id: int) -> Dict[str, Any]:
         logger.exception("Error in get_family_members")
         return {}
 
-def create_family_graph(family_data: Dict[str, Any], height: int = 12, width: int = 15, engine: str = 'dot') -> net.Network:
+def create_family_graph(family_data: Dict[str, Any], height: int = 12, width: int = 15) -> net.Network:
     """
-    Create a Pyvis network diagram of the family tree.
-    
+    Create a Pyvis network of the family tree.
+
+    Each generation is one horizontal row. Smaller generation numbers sit
+    above larger ones. Physics is off so a person stays on that row.
+
     Args:
         family_data: Dictionary containing family members data
-        height: Height multiplier for display (default: 12)
-        width: Width multiplier for display (default: 15)
-        engine: Layout engine ('dot'=hierarchical, others=force-directed)
-        
+        height: Height multiplier for the iframe (default: 12)
+        width: Passed by the page slider. The graph fills the column.
+
     Returns:
         pyvis.network.Network: The generated family tree network
     """
-    # Map graphviz engines to pyvis equivalents
-    engine_mapping = {
-        'dot': 'hierarchical',
-        'neato': 'force',
-        'fdp': 'force',
-        'sfdp': 'barnes_hut',
-        'twopi': 'force',
-        'circo': 'force'
-    }
-    
-    pyvis_engine = engine_mapping.get(engine, 'hierarchical')
-    
-    # Create the network
+    # Create the network. The canvas stays full width; rows come from levels.
     graph = net.Network(
         height=f"{height * 80}px",
         width="100%",
@@ -117,62 +107,32 @@ def create_family_graph(family_data: Dict[str, Any], height: int = 12, width: in
         directed=True,
         notebook=False
     )
-    
-    # Configure physics based on engine
-    if pyvis_engine == 'hierarchical':
-        graph.set_options("""
-        {
-          "physics": {
-            "hierarchicalRepulsion": {
-              "centralGravity": 0.0,
-              "springLength": 100,
-              "springConstant": 0.01,
-              "nodeDistance": 200,
-              "damping": 0.09
-            },
-            "minVelocity": 0.75,
-            "solver": "hierarchicalRepulsion"
-          }
+
+    graph.set_options("""
+    {
+      "layout": {
+        "hierarchical": {
+          "enabled": true,
+          "direction": "UD",
+          "sortMethod": "directed",
+          "levelSeparation": 150,
+          "nodeSpacing": 180,
+          "treeSpacing": 200,
+          "shakeTowards": "roots"
         }
-        """)
-    elif pyvis_engine == 'force':
-        graph.set_options("""
-        {
-          "physics": {
-            "forceAtlas2Based": {
-              "gravitationalConstant": -50,
-              "centralGravity": 0.01,
-              "springLength": 100,
-              "springConstant": 0.08
-            },
-            "maxVelocity": 50,
-            "solver": "forceAtlas2Based",
-            "timestep": 0.35,
-            "stabilization": {
-              "iterations": 150
-            }
-          }
+      },
+      "physics": {
+        "enabled": false
+      },
+      "edges": {
+        "smooth": {
+          "type": "cubicBezier",
+          "forceDirection": "vertical",
+          "roundness": 0.4
         }
-        """)
-    elif pyvis_engine == 'barnes_hut':
-        graph.set_options("""
-        {
-          "physics": {
-            "barnesHut": {
-              "gravitationalConstant": -8000,
-              "centralGravity": 0.3,
-              "springLength": 150,
-              "springConstant": 0.04,
-              "damping": 0.09,
-              "avoidOverlap": 0.5
-            },
-            "maxVelocity": 50,
-            "minVelocity": 0.1,
-            "solver": "barnesHut"
-          }
-        }
-        """)
-    
+      }
+    }
+    """)
     # Define node attributes
     def get_node_style(member: Dict[str, Any]) -> Dict[str, Any]:
         """Get node style based on member attributes."""
@@ -212,9 +172,12 @@ def create_family_graph(family_data: Dict[str, Any], height: int = 12, width: in
             
         return style
     
+    center = family_data.get('center') or {}
+    center_level = generation_level(center, 0)
+
     # Add nodes to the graph
-    def add_member_node(member: Dict[str, Any]) -> None:
-        """Add a member node to the graph."""
+    def add_member_node(member: Dict[str, Any], fallback_level: int) -> None:
+        """Add a member node on the row for that generation."""
         member_id = str(member['id'])
         
         # Create label with name and optional birth date
@@ -255,17 +218,18 @@ def create_family_graph(family_data: Dict[str, Any], height: int = 12, width: in
             member_id,
             label=label,
             title=member_popup(member.get('id', 'N/A'), name),
+            level=generation_level(member, fallback_level),
             **get_node_style(member)
         )
     
     # Add center member
     if 'center' in family_data and family_data['center']:
-        add_member_node(family_data['center'])
+        add_member_node(family_data['center'], center_level)
     
     # Add parents
     parent_nodes = []
     for parent in family_data.get('parents', []):
-        add_member_node(parent)
+        add_member_node(parent, center_level - 1)
         parent_nodes.append(str(parent['id']))
         
         # Connect to center
@@ -281,7 +245,7 @@ def create_family_graph(family_data: Dict[str, Any], height: int = 12, width: in
     # Add children
     child_nodes = []
     for child in family_data.get('children', []):
-        add_member_node(child)
+        add_member_node(child, center_level + 1)
         child_nodes.append(str(child['id']))
         
         # Connect to center
@@ -297,7 +261,7 @@ def create_family_graph(family_data: Dict[str, Any], height: int = 12, width: in
     # Add grandparents
     grandparent_nodes = []
     for grandparent in family_data.get('grandparents', []):
-        add_member_node(grandparent)
+        add_member_node(grandparent, center_level - 2)
         grandparent_nodes.append(str(grandparent['id']))
         
         # Connect to parents
@@ -316,7 +280,7 @@ def create_family_graph(family_data: Dict[str, Any], height: int = 12, width: in
     # Add grandchildren
     grandchild_nodes = []
     for grandchild in family_data.get('grandchildren', []):
-        add_member_node(grandchild)
+        add_member_node(grandchild, center_level + 2)
         grandchild_nodes.append(str(grandchild['id']))
         
         # Connect to children
@@ -358,7 +322,7 @@ def main():
         )
         
         # Add graph configuration options
-        col1, col2, col3 = st.columns(3)
+        col1, col2 = st.columns(2)
         with col1:
             graph_height = st.slider(
                 f"{UI_TEXTS['graph_height']}:",
@@ -376,13 +340,6 @@ def main():
                 value=15,
                 step=1,
                 help=f"{UI_TEXTS['adjust']} {UI_TEXTS['family_tree']} {UI_TEXTS['graph_width']}"
-            )
-        with col3:
-            graph_engine = st.selectbox(
-                f"{UI_TEXTS['layout_engine']}:",
-                options=['dot', 'neato', 'fdp', 'sfdp', 'twopi', 'circo'],
-                index=3,    # sfdp is the best for large graphs
-                help=f"{UI_TEXTS['select']} {UI_TEXTS['layout_engine']} (dot=hierarchical, others=force-directed)"
             )
         
         submitted = st.form_submit_button(f"{UI_TEXTS['draw']} {UI_TEXTS['family_tree']}", type="primary")
@@ -411,10 +368,9 @@ def main():
                     # Create and display the graph with user-specified settings
                     try:
                         graph = create_family_graph(
-                            family_data, 
-                            height=graph_height, 
+                            family_data,
+                            height=graph_height,
                             width=graph_width,
-                            engine=graph_engine
                         )
                         
                         # Save the graph to HTML and display it

@@ -12,7 +12,6 @@ dependencies = [
     "streamlit>=1.54.0",
     "python-dotenv>=1.2.2",
     "pyvis>=0.3.2",
-    "graphviz>=0.20",
 ]
 
 [tool.uv]
