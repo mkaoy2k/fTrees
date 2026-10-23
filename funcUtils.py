@@ -176,12 +176,12 @@ def get_1st_mbr_dict(df, mem, born, base=None):
     Raises:
         FileNotFoundError: If no record matches the given conditions
     """
-    filter = f"Name == @mem and Born == @born"
+    filter = "Name == @mem and Born == @born"
     try:
         rec = df.query(filter)
         if rec.empty:
             raise FileNotFoundError("No record matches the given conditions")
-    except Exception as e:
+    except Exception:
         raise
     
     # Remove duplicate records, keep only the first one
@@ -225,7 +225,7 @@ def format_timestamp(ts) -> str:
             else:
                 return ts_str  # 所有格式都失敗，返回原始字串
             return date_time.strftime('%Y-%m-%d %H:%M:%S')
-    except (ValueError, TypeError) as e:
+    except (ValueError, TypeError):
         return ts_str  # 解析失敗，返回原始字串
 
 def test_func():

@@ -18,10 +18,8 @@ import streamlit as st
 import db_utils as dbm
 from fTrees import UI_TEXTS, search_members_page
 import pandas as pd
-from datetime import datetime, date
-from typing import List, Dict, Any, Optional
+from datetime import date
 import funcUtils as fu
-from email_utils import Config, EmailPublisher
 from pathlib import Path
 from dotenv import load_dotenv
 import logging
@@ -378,7 +376,7 @@ def update_family_page() -> None:
                             st.session_state.update_message = message
                             st.rerun()
                     else:
-                        message = f"❌ {fu.get_function_name()} {UI_TEXTS['update_error']}: {updated_data   }"
+                        message = f"❌ {fu.get_function_name()} {UI_TEXTS['update_error']}: {update_data}"
                         st.session_state.update_message = message
                         st.rerun()
                         
@@ -592,7 +590,7 @@ def add_relation_page() -> None:
             
             # Validate date range if end date is provided
             if end_date and end_date < join_date:
-                st.error(f"❌ End date cannot be before start date")
+                st.error("❌ End date cannot be before start date")
                 st.stop()
         
         # Additional fields
@@ -1251,12 +1249,12 @@ def delete_member_page() -> None:
                             logger.error(message)
                             st.session_state.delete_message = message
                             st.rerun()
-                    except Exception as e:
+                    except Exception:
                         error_msg = f"❌ {fu.get_function_name()} {UI_TEXTS['delete_error']}"
                         logger.error(error_msg, exc_info=True)
                         st.session_state.delete_message = f"❌ {error_msg}"
                         st.rerun()
-        except Exception as e:
+        except Exception:
             error_msg = f"❌ {fu.get_function_name()} {UI_TEXTS['delete_error']}"
             logger.error(error_msg, exc_info=True)
             st.session_state.delete_message = f"❌ {error_msg}"
@@ -1373,7 +1371,7 @@ def delete_family_page() -> None:
                             logger.error(message)
                             st.session_state.delete_message = message
                             st.rerun()
-                    except Exception as e:
+                    except Exception:
                         error_msg = f"{fu.get_function_name()} {UI_TEXTS['delete_error']}"
                         logger.error(error_msg, exc_info=True)
                         st.session_state.delete_message = f"❌ {error_msg}"
@@ -1485,13 +1483,13 @@ def delete_relation_page() -> None:
                             logger.error(message)
                             st.session_state.delete_message = message
                             st.error(message)
-                    except Exception as e:
-                        error_msg = f"❌ Error deleting relation"
+                    except Exception:
+                        error_msg = "❌ Error deleting relation"
                         logger.error(error_msg, exc_info=True)
                         st.session_state.delete_message = f"❌ {error_msg}"
                         st.error(error_msg)
                 
-        except Exception as e:
+        except Exception:
             error_msg = f"{fu.get_function_name()} {UI_TEXTS['relation']} {UI_TEXTS['delete_error']}"
             logger.error(error_msg, exc_info=True)
             st.session_state.delete_message = f"❌ {error_msg}"
@@ -1646,6 +1644,7 @@ def main() -> None:
 # Initialize session state and UI_TEXTS
 if 'app_context' not in st.session_state:
     cu.init_session_state()
+cu.apply_ui_preferences()
 
 # Get UI_TEXTS with a fallback to English if needed
 try:

@@ -1,0 +1,11 @@
+# Line length matches the existing sources (longest line is just over 200).
+# `ruff check --select F,E` is the CI command. E501 stays in that selection
+# and passes at this length, so the check does not reflow the tree.
+line-length = 240
+
+[lint]
+select = ["F", "E"]
+
+[lint.per-file-ignores]
+# Tests insert the repo root on sys.path before importing the app.
+"tests/*" = ["E402"]

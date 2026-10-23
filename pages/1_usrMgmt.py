@@ -18,14 +18,28 @@ import context_utils as cu
 import funcUtils as fu
 import auth_utils as au
 
-def format_timestamps(df):
-    """Convert UTC timestamps to Pacific Time (with DST) and format"""
+def format_timestamps(df, timezone="UTC"):
+    """Format UTC timestamps in an IANA timezone.
+
+    Naive database values are treated as UTC. Unknown timezone names fall
+    back to UTC so a bad setting does not blank the user table.
+    """
+    zone = timezone or "UTC"
     for col in ['created_at', 'updated_at']:
         if col in df.columns:
-            # Parse as UTC and convert to Pacific Time (handles DST automatically)
-            df[col] = pd.to_datetime(df[col], utc=True)
-            df[col] = df[col].dt.tz_convert('America/Los_Angeles').dt.strftime('%Y-%m-%d %H:%M:%S')
+            converted = pd.to_datetime(df[col], utc=True, errors="coerce")
+            try:
+                converted = converted.dt.tz_convert(zone)
+            except Exception:
+                converted = converted.dt.tz_convert("UTC")
+            df[col] = converted.dt.strftime('%Y-%m-%d %H:%M:%S')
     return df
+
+
+def display_timezone():
+    """Timezone chosen in Settings, defaulting to UTC."""
+    context = st.session_state.get("app_context") or {}
+    return context.get("timezone") or "UTC"
 
 def show_page():
     # Get UI texts from session state
@@ -70,7 +84,7 @@ def show_page():
                     users = dbm.get_subscribers(state="active")
                     if users:
                         df = pd.DataFrame(users, columns=users[0].keys())
-                        df = format_timestamps(df)
+                        df = format_timestamps(df, display_timezone())
                         with info1:
                             st.info(f"{UI_TEXTS['active']} {UI_TEXTS['subscriber']} {UI_TEXTS['count']}: {len(users)}")
                             st.dataframe(df)
@@ -82,7 +96,7 @@ def show_page():
                     users = dbm.get_subscribers(state="inactive")
                     if users:
                         df = pd.DataFrame(users, columns=users[0].keys())
-                        df = format_timestamps(df)
+                        df = format_timestamps(df, display_timezone())
                         with info1:
                             st.info(f"{UI_TEXTS['inactive']} {UI_TEXTS['subscriber']} {UI_TEXTS['count']}: {len(users)}")
                             st.dataframe(df)
@@ -94,7 +108,7 @@ def show_page():
                     users = dbm.get_subscribers(state="pending")
                     if users:
                         df = pd.DataFrame(users, columns=users[0].keys())
-                        df = format_timestamps(df)
+                        df = format_timestamps(df, display_timezone())
                         with info1:
                             st.info(f"{UI_TEXTS['pending']} {UI_TEXTS['subscriber']} {UI_TEXTS['count']}: {len(users)}")
                             st.dataframe(df)
@@ -107,7 +121,7 @@ def show_page():
                     users = dbm.get_subscribers('all')
                     if users:
                         df = pd.DataFrame(users, columns=users[0].keys())
-                        df = format_timestamps(df)
+                        df = format_timestamps(df, display_timezone())
                         with info1:
                             st.info(f"{UI_TEXTS['subscriber']} {UI_TEXTS['count']}: {len(users)}")
                             st.dataframe(df)
@@ -297,12 +311,13 @@ def show_page():
     except Exception as err:
         fu.show_user_error(f"❌ {fu.get_function_name()} {UI_TEXTS['user_error']}", err)
     
-# Initialize session state and UI_TEXTS
-if 'app_context' not in st.session_state:
-    cu.init_session_state()
+# Streamlit runs this file as __main__. Tests can import format_timestamps.
+if __name__ == "__main__":
+    if 'app_context' not in st.session_state:
+        cu.init_session_state()
+    cu.apply_ui_preferences()
 
-# Check authentication
-if not st.session_state.get('authenticated', False):
-    st.switch_page("fTrees.py")
-else:
-    show_page()
+    if not st.session_state.get('authenticated', False):
+        st.switch_page("fTrees.py")
+    else:
+        show_page()

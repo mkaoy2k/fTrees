@@ -23,22 +23,25 @@ from dotenv import load_dotenv
 import logging
 import os
 import sqlite3
+import streamlit as st
 import db_utils as dbm
 import email_utils as eu
 import auth_utils as au
 import funcUtils as fu
 import pandas as pd
-from datetime import datetime, timedelta
 
 # Import database operations
-from ops_dbMgmt import init_db_management, init_admin_features, get_table_structure, drop_table
+from ops_dbMgmt import (
+    init_db_management,
+    init_admin_features,
+    get_table_structure,
+    drop_table,
+    remove_column_if_exists,
+)
 import context_utils as cu
 
 # Load environment variables
 load_dotenv()
-
-import streamlit as st
-import os
 
 # Set initial page config (will be updated after login)
 st.set_page_config(
@@ -181,8 +184,8 @@ def show_reset_password_page():
                                 st.session_state.reset_email = None
                                 st.rerun()
                         except Exception as e:
-                            st.session_state.reset_error = f"Error resetting password"
-                            logging.getLogger('ftpe').error(f"Error resetting password", exc_info=e)
+                            st.session_state.reset_error = "Error resetting password"
+                            logging.getLogger('ftpe').error("Error resetting password", exc_info=e)
                             st.rerun()
         # If no token, show email input form
         else:
@@ -1162,7 +1165,7 @@ def show_front_end():
         
             dark_mode = st.checkbox(
                 f"{UI_TEXTS['dark_mode']}", 
-                value=st.session_state.app_context.get('dark_mode', False),
+                value=st.session_state.app_context.get('dark_mode', True),
                 key="dark_mode"
             )
         
@@ -1185,6 +1188,7 @@ def show_front_end():
         # Update context
         cu.update_context(st.session_state.app_context)
         UI_TEXTS = st.session_state.ui_context[language]
+        cu.apply_ui_preferences()
 
         st.success(f"{UI_TEXTS['settings']} {UI_TEXTS['updated']} {UI_TEXTS['successfully']}")
 
@@ -1383,7 +1387,9 @@ def main():
         st.stop()
     
     # Check authentication
-    if 'authenticated' not in st.session_state or st.session_state.get('authenticated', False) != True:
+    cu.apply_ui_preferences()
+
+    if 'authenticated' not in st.session_state or not st.session_state.get('authenticated', False):
         show_login_page()
     else:
         if st.session_state.user_state == dbm.User_State['p_admin']:

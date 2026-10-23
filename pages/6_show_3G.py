@@ -12,11 +12,9 @@ and grandchildren in a graph visualization using Pyvis.
 import streamlit as st
 import streamlit.components.v1 as components
 import pyvis.network as net
-import pandas as pd
 import logging
-from typing import Dict, List, Optional, Tuple, Any
-from datetime import datetime, date
-from pathlib import Path
+from typing import Dict, Any
+from datetime import datetime
 from dotenv import load_dotenv
 import context_utils as cu
 import funcUtils as fu
@@ -63,94 +61,19 @@ def get_family_members(member_id: int) -> Dict[str, Any]:
             'grandchildren': []
         }
         
-        # Find parents
+        # Read parents and grandparents. Viewing the graph does not write relations.
         result['parents'] = dbm.get_parents(member_id)
-        
         for parent in result['parents']:
-            # Add parent relation: 
-            # Center member has partner as parent
-            try:
-                relation = {
-                    'member_id': member_id,
-                    'partner_id': parent['id'],
-                    'relation': 'parent',
-                    'join_date': center['born']}
-                parent_relations = dbm.add_or_update_relation(
-                    relation, update=True)
-                if not parent_relations:
-                    fu.show_user_error("❌ Error adding parent relation", e)
-                    logger.exception("Error adding parent relation")
-                    
-            except Exception as e:
-                fu.show_user_error("❌ Error adding parent relation", e)
-                logger.exception("Error adding parent relation")
-
-            # Get grandparents (parents of parents)
-            grandparents = dbm.get_parents(parent['id'])
-            for grandparent in grandparents:
-                # Add grandparent relation: 
-                # Parent member has partner as grandparent
-                try:
-                    relation = {
-                        'member_id': parent['id'],
-                        'partner_id': grandparent['id'],
-                        'relation': 'parent',
-                        'join_date': parent['born']}
-                    grandparent_relations = dbm.add_or_update_relation(
-                        relation, update=True)
-                    if not grandparent_relations:
-                        fu.show_user_error("❌ Error adding grandparent relation", e)
-                        logger.exception("Error adding grandparent relation")
-                        
-                except Exception as e:
-                    fu.show_user_error("❌ Error adding grandparent relation", e)
-                    logger.exception("Error adding grandparent relation")
+            for grandparent in dbm.get_parents(parent['id']):
                 if grandparent and grandparent not in result['grandparents']:
                     result['grandparents'].append(grandparent)
-        
-        # Find children
+
         result['children'] = dbm.get_children(member_id)
-        # Add child relation: 
-        # Center member has partner as child
         for child in result['children']:
-            try:
-                relation = {
-                    'member_id': member_id,
-                    'partner_id': child['id'],
-                    'relation': 'child',
-                    'join_date': child['born']}
-                child_relations = dbm.add_or_update_relation(
-                    relation, update=True)
-                if not child_relations:
-                    fu.show_user_error("❌ Error adding child relation", e)
-                    logger.exception("Error adding child relation")
-                    
-            except Exception as e:
-                fu.show_user_error("❌ Error adding child relation", e)
-                logger.exception("Error adding child relation")
-            # Get grandchildren (children of children)
-            grandchildren = dbm.get_children(child['id'])
-            for grandchild in grandchildren:
-                # Add grandchild relation: 
-                # Child member has partner as grandchild
-                try:
-                    relation = {
-                        'member_id': child['id'],
-                        'partner_id': grandchild['id'],
-                        'relation': 'child',
-                        'join_date': grandchild['born']}
-                    grandchild_relations = dbm.add_or_update_relation(
-                        relation, update=True)
-                    if not grandchild_relations:
-                        fu.show_user_error("❌ Error adding grandchild relation", e)
-                        logger.exception("Error adding grandchild relation")
-                        
-                except Exception as e:
-                    fu.show_user_error("❌ Error adding grandchild relation", e)
-                    logger.exception("Error adding grandchild relation")
+            for grandchild in dbm.get_children(child['id']):
                 if grandchild and grandchild not in result['grandchildren']:
                     result['grandchildren'].append(grandchild)
-                    
+
         return result
         
     except Exception as e:
@@ -587,21 +510,20 @@ def main():
                 fu.show_user_error(f"❌ {fu.get_function_name()} {UI_TEXTS['draw']} {UI_TEXTS['family_tree']} {UI_TEXTS['visualization']} {UI_TEXTS['failed']}", e)
                 logger.exception("Error in main")
                 
-# Initialize session state and UI_TEXTS
-if 'app_context' not in st.session_state:
-    cu.init_session_state()
-
-# Get UI_TEXTS with a fallback to English if needed
-try:
-    UI_TEXTS = st.session_state.ui_context[st.session_state.app_context.get('language', 'US')]
-except (KeyError, AttributeError):
-    # Fallback to English if there's any issue
-    UI_TEXTS = st.session_state.ui_context['US']
-
-# Check authentication
-if not st.session_state.get('authenticated', False):
-    st.switch_page("fTrees.py")
-else:
+# Streamlit runs this file as __main__. Importing it for tests does not draw the page.
+if __name__ == "__main__":
     if 'app_context' not in st.session_state:
-        st.session_state.app_context = cu.init_context()
-    main()
+        cu.init_session_state()
+    cu.apply_ui_preferences()
+
+    try:
+        UI_TEXTS = st.session_state.ui_context[st.session_state.app_context.get('language', 'US')]
+    except (KeyError, AttributeError):
+        UI_TEXTS = st.session_state.ui_context['US']
+
+    if not st.session_state.get('authenticated', False):
+        st.switch_page("fTrees.py")
+    else:
+        if 'app_context' not in st.session_state:
+            st.session_state.app_context = cu.init_context()
+        main()

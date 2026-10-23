@@ -7,9 +7,15 @@ import hashlib
 import os
 import shutil
 import sqlite3
+import sys
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 import auth_utils as au
 import db_utils as dbm
@@ -65,7 +71,7 @@ class PasswordAuthTests(unittest.TestCase):
     def _insert_reset_token(self, email, stored_token, expires_sql, used=0):
         with self._connect() as conn:
             conn.execute(
-                f"""
+                """
                 INSERT INTO password_reset_tokens (email, token, expires_at, used)
                 VALUES (?, ?, datetime('now', ?), ?)
                 """,
