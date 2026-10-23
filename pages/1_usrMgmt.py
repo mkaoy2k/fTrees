@@ -1,10 +1,4 @@
 """
-# Add parent directory to path to allow absolute imports
-import sys
-from pathlib import Path
-sys.path.append(str(Path(__file__).parent.parent.parent))
-
-
 User Management Page
 
 This page provides user management functionality including:
@@ -18,13 +12,14 @@ import context_utils as cu
 import funcUtils as fu
 import auth_utils as au
 
-def format_timestamps(df, timezone="UTC"):
+def format_timestamps(df, timezone=None):
     """Format UTC timestamps in an IANA timezone.
 
-    Naive database values are treated as UTC. Unknown timezone names fall
-    back to UTC so a bad setting does not blank the user table.
+    Naive database values are treated as UTC. The default zone is Pacific
+    Time. Unknown timezone names fall back to UTC so a bad setting does not
+    blank the user table.
     """
-    zone = timezone or "UTC"
+    zone = timezone or cu.DEFAULT_TIMEZONE
     for col in ['created_at', 'updated_at']:
         if col in df.columns:
             converted = pd.to_datetime(df[col], utc=True, errors="coerce")
@@ -37,9 +32,9 @@ def format_timestamps(df, timezone="UTC"):
 
 
 def display_timezone():
-    """Timezone chosen in Settings, defaulting to UTC."""
+    """Timezone chosen in Settings, defaulting to Pacific Time."""
     context = st.session_state.get("app_context") or {}
-    return context.get("timezone") or "UTC"
+    return context.get("timezone") or cu.DEFAULT_TIMEZONE
 
 def show_page():
     # Get UI texts from session state
