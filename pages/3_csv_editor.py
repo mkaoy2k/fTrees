@@ -20,6 +20,7 @@ import funcUtils as fu
 import db_utils as dbm
 import os
 import time
+from nav import render_sidebar, require_role
 
 def load_csv(file_path):
     """
@@ -92,48 +93,8 @@ def load_file_content(file_path=None):
 
 def main():
     st.header("CSV Editor")
-    # --- Sidebar --- from here
+    render_sidebar()
     with st.sidebar:
-        if st.session_state.user_state != dbm.User_State['p_admin']:
-            # Hide the default navigation for non-padmin users
-            st.markdown("""
-            <style>
-                [data-testid="stSidebarNav"] {
-                display: none !important;
-            }
-            </style>""", unsafe_allow_html=True)
-        
-        if 'user_email' in st.session_state and st.session_state.user_email:
-            st.markdown(
-                f"<div style='background-color: #2e7d32; padding: 0.5rem; border-radius: 0.5rem; margin-bottom: 1rem;'>"
-                f"<p style='color: white; margin: 0; font-weight: bold; text-align: center;'>{st.session_state.user_email}</p>"
-                "</div>",
-                unsafe_allow_html=True
-            )
-            cu.update_context({
-                'email_user': st.session_state.user_email
-            })
-        
-        if st.session_state.user_state != dbm.User_State['p_admin']:
-            st.subheader("Navigation")
-            st.page_link("fTrees.py", label="Home", icon="🏠")
-            # st.page_link("pages/5_ftpe.py", label="FamilyTreePE", icon="📊")
-            if st.session_state.user_state == dbm.User_State['f_admin']:
-                st.page_link("pages/2_famMgmt.py", label="Family Management", icon="🌲")
-                st.page_link("pages/8_caseMgmt.py", label="Case Management", icon="📋")
-                st.page_link("pages/9_birthday.py", label="Birthday", icon="🎂")
-            st.page_link("pages/6_show_3G.py", label="Show 3 Generations", icon="👥")
-            st.page_link("pages/7_show_related.py", label="Show Related", icon="👨‍👩‍👧‍👦")
-            st.page_link("pages/4_json_editor.py", label="JSON Editor", icon="🪛")
-        
-        # Add logout button at the bottom
-        if st.button("Logout", type="primary", use_container_width=True, key="csv_editor_logout"):
-            # Log logout activity
-            if 'user_email' in st.session_state and st.session_state.user_email:
-                fu.log_activity(st.session_state.user_email, 'logout')
-            st.session_state.authenticated = False
-            st.session_state.user_email = None
-            st.rerun()
         # Directory selection
         dirs = {
             'Data': Path(__file__).parent.parent / "data",  # Data directory
@@ -287,6 +248,11 @@ cu.apply_ui_preferences()
 if not st.session_state.get('authenticated', False):
     st.switch_page("fTrees.py")
 else:
+    require_role(
+        dbm.User_State['p_admin'],
+        dbm.User_State['f_admin'],
+        dbm.User_State['f_member'],
+    )
     # Initialize session state variables
     if 'file_content' not in st.session_state:
         st.session_state.file_content = pd.DataFrame()

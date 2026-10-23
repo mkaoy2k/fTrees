@@ -9,6 +9,7 @@ import logging
 import os
 import re
 import sqlite3
+import threading
 from pathlib import Path
 
 import funcUtils as fu
@@ -177,7 +178,71 @@ def column_assignments(values, allowed, fk_fields=(), ignore=()):
     return fields, params
 
 
-def get_db_connection() -> sqlite3.Connection:
+_connections = threading.local()
+
+
+def _connection_stack():
+    stack = getattr(_connections, "stack", None)
+    if stack is None:
+        stack = []
+        _connections.stack = stack
+    return stack
+
+
+class _ConnectionScope:
+    """Context manager around one SQLite connection.
+
+    Nested ``with get_db_connection()`` calls reuse the connection already
+    open on this thread. Callers that assign ``conn = get_db_connection()``
+    and then ``commit()`` / ``close()`` still receive an object with those
+    methods. ``__enter__`` yields the raw connection so both scopes are the
+    same object.
+    """
+
+    def __init__(self, conn, owned):
+        object.__setattr__(self, "_conn", conn)
+        object.__setattr__(self, "_owned", owned)
+
+    def __getattr__(self, name):
+        return getattr(object.__getattribute__(self, "_conn"), name)
+
+    def __setattr__(self, name, value):
+        if name in ("_conn", "_owned"):
+            object.__setattr__(self, name, value)
+            return
+        setattr(object.__getattribute__(self, "_conn"), name, value)
+
+    def __enter__(self):
+        conn = object.__getattribute__(self, "_conn")
+        if object.__getattribute__(self, "_owned"):
+            _connection_stack().append(conn)
+        return conn
+
+    def __exit__(self, exc_type, exc, tb):
+        if not object.__getattribute__(self, "_owned"):
+            return False
+        conn = object.__getattribute__(self, "_conn")
+        stack = _connection_stack()
+        if stack and stack[-1] is conn:
+            stack.pop()
+        try:
+            if exc_type is None:
+                conn.commit()
+            else:
+                conn.rollback()
+        except sqlite3.Error:
+            if exc_type is None:
+                raise
+        finally:
+            if not stack:
+                try:
+                    conn.close()
+                except sqlite3.Error:
+                    pass
+        return False
+
+
+def _open_connection():
     """Open the configured database with foreign keys enforced."""
     name = config.database_name
     if name == ":memory:":
@@ -193,6 +258,17 @@ def get_db_connection() -> sqlite3.Connection:
         conn.execute("PRAGMA synchronous = NORMAL")
     conn.execute("PRAGMA temp_store = MEMORY")
     return conn
+
+
+def get_db_connection():
+    """Return a connection scope for the configured database.
+
+    A nested call reuses the connection opened by the outer ``with`` block.
+    """
+    stack = _connection_stack()
+    if stack:
+        return _ConnectionScope(stack[-1], owned=False)
+    return _ConnectionScope(_open_connection(), owned=True)
 
 
 def get_table_columns(table: str):

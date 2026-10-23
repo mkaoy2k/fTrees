@@ -17,6 +17,7 @@ from dotenv import load_dotenv
 import logging
 import os
 from case_helpers import chosen_parents, member_user_fields, project_env_file
+from nav import render_sidebar, require_role
 
 # --- Initialize system environment --- from here
 # Pages live in pages/, so the project .env is one directory up.
@@ -2144,67 +2145,7 @@ def new_step_parent_page():
 
 def sidebar() -> None:
     """Sidebar application entry point."""
-    # Sidebar --- from here
-    with st.sidebar:
-        if st.session_state.user_state == dbm.User_State['p_admin']:
-            # Show default navigation for padmin users
-            if 'user_email' in st.session_state and st.session_state.user_email:
-                st.markdown(
-                    f"<div style='background-color: #2e7d32; padding: 0.5rem; border-radius: 0.5rem; margin: 1rem 0;'>"
-                    f"<p style='color: white; margin: 0; font-weight: bold; text-align: center;'>{st.session_state.user_email}</p>"
-                    "</div>",
-                    unsafe_allow_html=True)
-                cu.update_context({
-                    'email_user': st.session_state.user_email
-                })
-                
-                # Add logout button at the bottom for admin
-                if st.button(UI_TEXTS['logout'], type="primary", use_container_width=True, key="fam_mgmt_admin_logout"):
-                    # Log logout activity
-                    if 'user_email' in st.session_state and st.session_state.user_email:
-                        fu.log_activity(st.session_state.user_email, 'logout')
-                    st.session_state.authenticated = False
-                    st.session_state.user_email = None
-                    st.rerun()
-        else:
-            # For non-admin users
-            # Hide the default navigation for non-padmin users
-            st.markdown("""
-            <style>
-                [data-testid="stSidebarNav"] {
-                    display: none !important;
-                }
-            </style>""", unsafe_allow_html=True)
-            
-            if 'user_email' in st.session_state and st.session_state.user_email:
-                st.markdown(
-                    f"<div style='background-color: #2e7d32; padding: 0.5rem; border-radius: 0.5rem; margin-bottom: 1rem;'>"
-                    f"<p style='color: white; margin: 0; font-weight: bold; text-align: center;'>{st.session_state.user_email}</p>"
-                    "</div>",
-                    unsafe_allow_html=True)
-                cu.update_context({
-                    'email_user': st.session_state.user_email
-                })
-            
-            st.subheader(UI_TEXTS['navigation'])
-            st.page_link("fTrees.py", label="Home", icon="🏠")
-             # st.page_link("pages/5_ftpe.py", label="FamilyTreePE", icon="📊")
-            if st.session_state.user_state == dbm.User_State['f_admin']:
-                st.page_link("pages/2_famMgmt.py", label="Family Management", icon="🌲")
-                st.page_link("pages/9_birthday.py", label="Birthday", icon="🎂")
-            st.page_link("pages/6_show_3G.py", label="Show 3 Generations", icon="👥")
-            st.page_link("pages/7_show_related.py", label="Show Related", icon="👨‍👩‍👧‍👦")
-            st.page_link("pages/3_csv_editor.py", label="CSV Editor", icon="🔧")
-            st.page_link("pages/4_json_editor.py", label="JSON Editor", icon="🪛")
-             
-            # Add logout button at the bottom for non-admin users
-            if st.button(UI_TEXTS['logout'], type="primary", use_container_width=True, key="fam_mgmt_user_logout"):
-                # Log logout activity
-                if 'user_email' in st.session_state and st.session_state.user_email:
-                    fu.log_activity(st.session_state.user_email, 'logout')
-                st.session_state.authenticated = False
-                st.session_state.user_email = None
-                st.rerun()
+    render_sidebar()
 
 def main() -> None:
     """Main application entry point."""
@@ -2271,5 +2212,6 @@ if __name__ == "__main__":
     if not st.session_state.get('authenticated', False):
         st.switch_page("fTrees.py")
     else:
+        require_role(dbm.User_State['p_admin'], dbm.User_State['f_admin'])
         sidebar()
         main()

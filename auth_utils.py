@@ -99,6 +99,86 @@ def is_stored_reset_token(value):
     """True when value is already a SHA-256 hex digest rather than a raw token."""
     return isinstance(value, str) and _SHA256_HEX.fullmatch(value) is not None
 
+# Same sentence for a known address, an unknown address, a send failure,
+# and a rate-limited request. The page must not reveal whether the email
+# is registered.
+RESET_REQUEST_MESSAGE = "If an account exists for that email, a reset link has been sent."
+AUTH_ATTEMPT_WINDOW_MINUTES = 15
+_AUTH_ACTIONS = frozenset({"login", "reset"})
+
+def _normalize_email(email):
+    if not isinstance(email, str):
+        return ""
+    return email.strip().lower()
+
+def _auth_action(action):
+    if action not in _AUTH_ACTIONS:
+        raise ValueError("Unknown auth action")
+    return action
+
+def auth_attempt_count(email, action, window_minutes=AUTH_ATTEMPT_WINDOW_MINUTES):
+    """Count recent login or reset attempts for this address."""
+    email = _normalize_email(email)
+    action = _auth_action(action)
+    if not email:
+        return 0
+    window = f"-{int(window_minutes)} minutes"
+    with dbm.get_db_connection() as conn:
+        row = conn.execute(
+            """
+            SELECT COUNT(*) FROM login_attempts
+            WHERE email = ? AND action = ?
+            AND attempted_at > datetime('now', ?)
+            """,
+            (email, action, window),
+        ).fetchone()
+    return int(row[0]) if row else 0
+
+def auth_is_limited(email, action, limit=None):
+    """True when this address has used its attempts for the current window."""
+    if limit is None:
+        limit = cu.MAX_LOGIN_ATTEMPTS
+    return auth_attempt_count(email, action) >= int(limit)
+
+def record_auth_attempt(email, action):
+    """Record one failed login or one reset request.
+
+    Attempts at or over the limit are not recorded again, so the window
+    can expire.
+    """
+    email = _normalize_email(email)
+    action = _auth_action(action)
+    if not email or auth_is_limited(email, action):
+        return
+    with dbm.get_db_connection() as conn:
+        conn.execute(
+            "INSERT INTO login_attempts (email, action) VALUES (?, ?)",
+            (email, action),
+        )
+
+def clear_auth_attempts(email, action):
+    """Forget attempts after a successful login."""
+    email = _normalize_email(email)
+    action = _auth_action(action)
+    if not email:
+        return
+    with dbm.get_db_connection() as conn:
+        conn.execute(
+            "DELETE FROM login_attempts WHERE email = ? AND action = ?",
+            (email, action),
+        )
+
+def login_allowed(email):
+    """False when this address is over MAX_LOGIN_ATTEMPTS."""
+    return not auth_is_limited(email, "login")
+
+def reset_may_send(email):
+    """False when this address is over the reset-request limit.
+
+    The answer does not say whether the address is registered.
+    """
+    return not auth_is_limited(email, "reset")
+
 def verify_fmember(email, password):
     """Verify family member credentials and membership status
     
@@ -293,7 +373,7 @@ def create_password_reset_token(email: str, expires_hours: int = None):
             return token
             
     except Exception as e:
-        fu.show_user_error("Error creating password reset token", e)
+        logging.getLogger("ftpe").error("Error creating password reset token", exc_info=e)
         return None
 
 def validate_password_reset_token(token: str) -> tuple:

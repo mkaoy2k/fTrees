@@ -16,6 +16,7 @@ import graphviz as gv  # pip install graphviz
 import funcUtils as fu
 import context_utils as cu
 import db_utils as dbm
+from nav import render_sidebar, require_role
 
 # Import performance logging modules
 import logging
@@ -1665,6 +1666,11 @@ cu.apply_ui_preferences()
 if not st.session_state.get('authenticated', False):
     st.switch_page("fTrees.py")
 else:
+    require_role(
+        dbm.User_State['p_admin'],
+        dbm.User_State['f_admin'],
+        dbm.User_State['f_member'],
+    )
     st.empty()
 
     g_dirtyTree = os.getenv("DIRTY_TREE", "0")
@@ -1694,47 +1700,9 @@ else:
     g_loc = g_L10N[g_loc_key]
     logger.debug(f"{g_loc['SX_L10N']}: {g_loc_key}")
 
+    render_sidebar()
     # ---- SIDEBAR ---- from here
     with st.sidebar:
-        if st.session_state.user_state != dbm.User_State['p_admin']:
-            # Hide the default navigation for non-padmin users
-            st.markdown("""
-            <style>
-                [data-testid="stSidebarNav"] {
-                    display: none !important;
-                }
-            </style>""", unsafe_allow_html=True)
-        
-        if 'user_email' in st.session_state and st.session_state.user_email:
-            st.markdown(
-                f"<div style='background-color: #2e7d32; padding: 0.5rem; border-radius: 0.5rem; margin-bottom: 1rem;'>"
-                f"<p style='color: white; margin: 0; font-weight: bold; text-align: center;'>{st.session_state.user_email}</p>"
-                "</div>",
-                unsafe_allow_html=True)
-            cu.update_context({
-                'email_user': st.session_state.user_email
-            })
-        
-        if st.session_state.user_state != dbm.User_State['p_admin']:
-            # Page Navigation Links
-            st.subheader("Navigation")
-            st.page_link("fTrees.py", label="Home", icon="🏠")
-            st.page_link("pages/3_csv_editor.py", label="CSV Editor", icon="🔧")
-            st.page_link("pages/4_json_editor.py", label="JSON Editor", icon="🪛")
-            st.page_link("pages/6_show_3G.py", label="Show 3 Generations", icon="👥")
-            st.page_link("pages/7_show_related.py", label="Show Related", icon="👨‍👩‍👧‍👦")
-            if st.session_state.user_state == dbm.User_State['f_admin']:
-                st.page_link("pages/2_famMgmt.py", label="Family Tree Management", icon="🌲")
-        
-        # Add logout button at the bottom
-        if st.button("Logout", type="primary", use_container_width=True, key="ftpe_logout"):
-            # Log logout activity
-            if 'user_email' in st.session_state and st.session_state.user_email:
-                fu.log_activity(st.session_state.user_email, 'logout')
-            st.session_state.authenticated = False
-            st.session_state.user_email = None
-            st.rerun()
-            
         # Define the title of sidebar widget
         g_SBAR_TITLE = (
             f"{g_fullname}{g_loc['FAMILY_TREE']}\n## {g_loc['WELCOME']} {g_fullname}"
