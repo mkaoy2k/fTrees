@@ -1,0 +1,19 @@
+[project]
+name = "ftrees"
+version = "2.6.0"
+description = "FamilyTrees, a Streamlit app for recording and sharing a family tree."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Michael Kao" }]
+dependencies = [
+    "pandas>=2.0.0",
+    "streamlit>=1.54.0",
+    "python-dotenv>=1.2.2",
+    "pyvis>=0.3.2",
+    "graphviz>=0.20",
+]
+
+[tool.uv]
+package = false

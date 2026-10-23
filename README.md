@@ -1,41 +1,36 @@
-# FamilyTrees (`fts`)
+# FamilyTrees (`fTrees`)
 
 ## Introduction
 
-The 'FamilyTrees' (`fts` in short) is a web application, wrritten in Python that allows you to record your family tree and connect to other family trees on Internet. It is an extension to the FamilyTrees Personal Edition (`ftpe`) project that is available for free.
+FamilyTrees (`fTrees`) is a web application, written in Python, that lets you record your family tree and connect it with other family trees. It is an extension of the FamilyTrees Personal Edition (`ftpe`).
 
 ## How It Works
 
-The `fts` facilitates you to build your whole family tree as you grow your family and to be able to trace back your family root as you like. With this simple `fts` App, you can add, update, share and pass along your family tree among your family members. Who knows, it might become one of your family heritage some day.
+`fTrees` stores members, relationships, and accounts in a local SQLite database. Family members can add and update records, then query them as tables or as a graph.
 
-The `fts` also provides various query functions to discover your root, by entertaining you with graphic representation of your related family members.
+1. _Sharing_: several people can maintain parts of the same tree and keep one shared database.
 
-The `fts` not only helps you to build your family heritage, but also provides you with the following benefits:
+2. _Languages_: the catalogs in `L10N.json` are 繁中, 简中, 日本語, 한국어, Danish, German, French, Lithuanian, Polish, Spanish, and US. To add another language, add a catalog file and a line in `L10N.json`. Questions can go to [Michael Kao](mailto:mkaoy2k@gmail.com).
 
-1. _Sharing_:
-
-   To join online over Internet, you can help  build the same family tree of yours. Or better yet, with divide-and-conquer approach, several family members can work together to build different parts of the family tree simultaneously. While merging them together seamlessly, resluting in the whole picture of your family history, the footprint of your family history might eventually become the treasure of your family heritage to pass along.
-
-2. _Multi-Language Support_:
-
-   Currently, there are 10 supported languages: English, Traditional Chinese, Simplified Chinese, Japanese, Korean, Danish, German, French, Lithuanian, and Polish. You are welcome if you would like to localize any language of yours. Don't hesitate to let [Creator: Michael Kao](mailto:mkaoy2k@gmail.com) know.
+The application is licensed under the MIT License. See `LICENSE`.
 
 ### System Requirements
 
-- Python 3.8 or newer
-- SQLite 3 (built-in)
-- Email service (e.g., Gmail)
+- Python 3.12 or newer (CI runs 3.12; the container image is Python 3.13)
+- SQLite 3 (included with Python)
+- An SMTP account if you send password-reset or birthday mail
+- The Graphviz `dot` program, only for the personal edition (`ftpe.py`)
 
-### Installation Steps
+### Installation
 
-1. **Clone the Repository**
+1. **Clone this repository**
 
    ```bash
-   git clone https://github.com/mkaoy2k/ftpe.git
-   cd fts
+   git clone https://github.com/mkaoy2k/fTrees.git
+   cd fTrees
    ```
 
-2. **Create Virtual Environment (Recommended)**
+2. **Create a virtual environment**
 
    ```bash
    python -m venv .venv
@@ -44,148 +39,135 @@ The `fts` not only helps you to build your family heritage, but also provides yo
    .\.venv\Scripts\activate  # Windows
    ```
 
-3. **Install Dependencies**
+3. **Install dependencies**
 
-   Install the required dependencies by running the following command if using Conda environment:
-
-   ```bash
-   conda env create -f environment.yaml
-   ```
-
-   Or under uv environment, run:
-
-   ```bash
-   uv run python -m pip install -r requirements.txt
-   ```
-
-   Or under pip environment, run:
+   Direct dependencies are declared in `pyproject.toml`. `requirements.txt` and `uv.lock` are the lockfile exported from that declaration. Pandas and Streamlit pull in numpy themselves. The Python `graphviz` package is required by `ftpe.py`.
 
    ```bash
    pip install -r requirements.txt
    ```
 
-4. **Configure Environment Variables** defined in the `.env` file
+   With conda, the environment file installs Python 3.12, the Graphviz `dot` program, and the same lockfile:
+
+   ```bash
+   conda env create -f environment.yaml
+   conda activate ftrees
+   ```
+
+   Refresh the lock after changing `pyproject.toml`:
+
+   ```bash
+   uv lock
+   uv export --no-dev --no-hashes --no-emit-project -o requirements.txt
+   ```
+
+4. **Configure environment variables**
 
    ```bash
    cp template.env.txt .env
    ```
 
-   Edit the `.env` file to tailor your environment:
-   - Set server paths
-   - Set your language, release, and version etc.
-   - Configure email service
-   - Set application name, DB admin name, DB admin password
-   - Set DB name, DB host, DB port
-   - Configure server URL
+   Edit `.env` for language, mail, and the admin account created by `genesis.py`. The database path defaults to `data/family.db`. Language names must match the keys in `L10N.json` (`Spanish`, `US`, `繁中`, and the others). Matching is case-insensitive.
 
-   Edit `L10N.json` if your language is newly added. The default languages are Traditional Chinese (繁中) and English (US).
-
-   Edit `L10N_<your language>.json` if your language is newly added. The current localization files include:
-
-   ```bash
-   "繁中"  : "L10N_TW.json",
-   "简中"  : "L10N_CN.json",
-   "日本語" : "L10N_JP.json",
-   "한국어" : "L10N_KR.json",
-   "DANISH" : "L10N_DK.json",
-   "GERMAN" : "L10N_DE.json",
-   "FRENCH" : "L10N_FR.json",
-   "LITHUANIAN" : "L10N_LT.json",
-   "POLISH" : "L10N_PL.json",
-   "US"   : "L10N_US.json"
-   ```
-
-   To set your preferred language, you can specify your preferred language in the `.env` file, e.g.:
-
-   ```bash
-   L10N_FILE="L10N.json"
-   L10N="繁中"
-   # L10N="US"
-   ```
-
-   At the run time, from `Settings` sidebar, you can also select your preferred language from the 'User Language' drop-down list.
-
-5. **Initialize Data Directory**
+5. **Create the data directory and the admin account**
 
    ```bash
    mkdir -p data
-   ```
-
-6. **Initialize Admin User Database**
-
-   ```bash
    python genesis.py
    ```
 
+### Upgrading an existing database
+
+Back up `data/family.db` before the first start after an upgrade. The first start migrates that file in place. `init_db()` rebuilds the member and relation tables to add foreign keys, turns references that do not point at a real row into NULL, removes orphaned password-reset tokens, and hashes leftover plaintext reset tokens. It does not create a second database file. Copy the file aside first:
+
+```bash
+cp -a data/family.db data/family.db.bak
+```
+
+### Tests
+
+```bash
+pip install -r requirements.txt ruff
+ruff check --select F,E
+python -m unittest discover -s tests -t . -v
+```
+
 ## Directory Structure
 
-fts/
+```text
+fTrees/
 ├── auth_utils.py         # Authentication utilities
+├── case_helpers.py       # Case-form helpers
 ├── context_utils.py      # Context management
-├── db_utils.py           # Database utilities
+├── db_utils.py           # Database facade
+├── Dockerfile            # Container image
+├── editor_paths.py       # CSV/JSON editor path checks
 ├── email_utils.py        # Email functionality
-├── fTrees.py             # Main interface
-├── ftpe.py               # Personal edition (`streamlit run ftpe.py`)
+├── environment.yaml      # Conda env (uses the lockfile)
+├── fTrees.py             # Main Streamlit app
+├── ftpe.py               # Personal edition (separate process)
 ├── funcUtils.py          # Utility functions
-├── genesis.py            # Initialization script
-├── glogTime.py           # Logging utilities
-├── ops_dbMgmt.py         # Database management
-configuration script
-├── bday.html             # Birthday template
-├── requirements.txt      # Python dependencies
+├── genesis.py            # Create the admin account
+├── LICENSE               # MIT License
+├── nav.py                # Shared sidebar and role gate
+├── pyproject.toml        # Direct dependencies
+├── requirements.txt      # Locked dependencies
+├── uv.lock               # Lockfile
 ├── template.env.txt      # Environment template
-│
-├── data/                 # Data directory
+├── bday.html             # Birthday template
+├── data/                 # Local data (mostly untracked)
 │   ├── family.db         # Local database (not in git)
 │   ├── me.csv            # Local personal tree (not in git)
 │   ├── me.sample.csv     # Fictional sample tree
 │   └── template.csv      # CSV template
-│
-└── pages/                # Application pages
-    ├── 1_usrMgmt.py      # User management page
-    ├── 2_famMgmt.py      # Family management page
-    ├── 3_csv_editor.py   # CSV editor page
-    ├── 4_json_editor.py  # JSON editor page
-    ├── 6_show_3G.py      # show 3G page
-    ├── 7_show_related.py # show relatives page
-    ├── 8_caseMgmt.py     # case management page
-    └── 9_birthday.py     # birthday page
+└── pages/                # Multipage screens for fTrees.py
+    ├── 1_usrMgmt.py
+    ├── 2_famMgmt.py
+    ├── 3_csv_editor.py
+    ├── 4_json_editor.py
+    ├── 6_show_3G.py
+    ├── 7_show_related.py
+    ├── 8_caseMgmt.py
+    └── 9_birthday.py
+```
 
 ## How to Use
 
-There are two running environments that are supported to run `fts` App.
+### Docker
 
-1. To run `fts` App as a Docker Image in a Docker Container:
+Build the image from this repository, then run it:
 
-   - After pulling mkaoy2k/fts image from the [Docker Hub](https://hub.docker.com), execute the following command to launch `fts` container, for example:
+```bash
+docker build -t ftrees .
+mkdir -p data
+cp -a data/family.db data/family.db.bak  # if a database is already there
+chown -R 1000:1000 data
+docker run --name ftrees -d -p 8501:8501 \
+  --env-file .env \
+  -v "$PWD/data:/fts/data" \
+  ftrees
+```
 
-   ```bash
-   docker run --name fts -d -p 8501:8501 --env-file .env mkaoy2k/fts:2.6
-   ```
+The process listens on port 8501 without opening a browser (`--server.headless=true`). A health check requests `http://127.0.0.1:8501/_stcore/health`.
 
-   Pass configuration and secrets with `--env-file` or `-e`. The image does not contain `.env`, database files, or `data/me.csv`.
+The image declares `VOLUME /fts/data` and runs as uid 1000 (`appuser`). The mounted directory has to be writable by that user. `chown 1000:1000` on the host directory before `docker run`. A Docker-managed named volume is created root-owned, so the app cannot write `family.db` there until that volume is chowned to uid 1000. Pass secrets with `--env-file` or `-e`. The image build ignores `.env` and local database files.
 
-   - At your default web browser, displaying the login page by entering:
+Open `http://localhost:8501`.
 
-   ```bash
-   http://localhost:8501
-   ```
+### Python
 
-2. To run `fts` App in Python environment, do:
+```bash
+streamlit run fTrees.py
+```
 
-   - Ensure that you have installed the required dependencies in the `.env` file.
+Streamlit serves the login page at `http://localhost:8501`.
 
-   - Run the `fTrees.py` file using the Streamlit CLI. Execute the following command to launch `fts` server:
+The personal edition is a separate program. Run it with `streamlit run ftpe.py`. That process has its own session, so sign in again there even if `fTrees.py` is already open:
 
-   ```bash
-   streamlit run fTrees.py
-   ```
+```bash
+streamlit run ftpe.py
+```
 
-   - When the `fts` server is running, your default web browser, displaying a login page, will be launched automatically. Or at will, you may launch your default web browser, displaying the login page by entering:
+`ftpe.py` reads `data/me.csv` on this machine. `data/me.sample.csv` is a fictional tree you can copy to `data/me.csv`. Rendering its graph needs the Graphviz `dot` program (`apt install graphviz`, `brew install graphviz`, or the conda environment above) in addition to the Python `graphviz` package.
 
-   ```bash
-   http://localhost:8501
-   ```
-
-   Created with ❤️ by:
-   [Michael Kao](https://github.com/mkaoy2k/fts)
+Created by [Michael Kao](https://github.com/mkaoy2k/fTrees).
