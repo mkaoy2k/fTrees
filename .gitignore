@@ -5,6 +5,9 @@
 /.vscode
 *.code-workspace
 
+# Agent
+.agents/*
+
 # USB extFat
 ._*
 .DS_*
@@ -30,10 +33,11 @@ prod_*
 #
 ### Python ###
 # Byte-compiled / optimized / DLL files
-__pycache__/
+__pycache__/*
 .ruff_cache
 *.py[cod]
 *$py.class
+uv.lock
 
 # C extensions
 *.so
