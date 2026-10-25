@@ -1670,7 +1670,7 @@ def new_step_child_page():
                 f"{UI_TEXTS['enter']} {UI_TEXTS['member']} {UI_TEXTS['name']}",
                 key="step_parent_to_join_name"
             )
-        search_clicked = st.form_submit_button(UI_TEXTS['search'], type="primary", use_container_width=True)
+        search_clicked = st.form_submit_button(UI_TEXTS['search'], type="primary", width="stretch")
 
         # Display search results
         if search_clicked:
@@ -1909,7 +1909,7 @@ def new_step_parent_page():
                 f"{UI_TEXTS['enter']} {UI_TEXTS['member']} {UI_TEXTS['name']}",
                 key="step_child_to_join_name"
             )
-        search_clicked = st.form_submit_button(UI_TEXTS['search'], type="primary", use_container_width=True)
+        search_clicked = st.form_submit_button(UI_TEXTS['search'], type="primary", width="stretch")
 
         # Display search results
         if search_clicked:

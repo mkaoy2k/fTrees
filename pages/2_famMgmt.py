@@ -188,7 +188,7 @@ def search_families_page() -> None:
                             'updated_at': 'Updated At'
                         },
                         hide_index=True,
-                        use_container_width=True,
+                        width="stretch",
                         column_order=all_fields
                     )
             
@@ -510,7 +510,7 @@ def search_relations_page() -> None:
                             'updated_at': 'Updated At'
                         },
                         hide_index=True,
-                        use_container_width=True,
+                        width="stretch",
                         column_order=all_fields
                     )
             

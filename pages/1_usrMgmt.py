@@ -155,10 +155,10 @@ def show_page():
             
             col1, col2 = st.columns(2)
             with col2:
-                if st.button(f"{UI_TEXTS['refresh']}", type="secondary", key="refresh_subscriber_btn", use_container_width=True):
+                if st.button(f"{UI_TEXTS['refresh']}", type="secondary", key="refresh_subscriber_btn", width="stretch"):
                     st.rerun()
             with col1:
-                if st.button(f"{UI_TEXTS['query']} {UI_TEXTS['subscriber']}", type="primary", key="query_subscriber_btn", use_container_width=True):
+                if st.button(f"{UI_TEXTS['query']} {UI_TEXTS['subscriber']}", type="primary", key="query_subscriber_btn", width="stretch"):
                     user = dbm.get_subscriber(email)
                 
             # Always show the subscriber details section, 
