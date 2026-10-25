@@ -171,7 +171,7 @@ def main():
     edited_df = st.data_editor(
         current_content,
         num_rows="dynamic",
-        use_container_width=True,
+        width="stretch",
         key=st.session_state.editor_key
     )
 
@@ -220,7 +220,7 @@ def main():
     st.write(f"Number of rows: {len(edited_df)}")
     with st.expander("View Formatted Table"):
         if not edited_df.empty:
-            st.dataframe(edited_df, use_container_width=True)
+            st.dataframe(edited_df, width="stretch")
         else:
             st.info("No data to display")
 

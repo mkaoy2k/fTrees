@@ -91,7 +91,7 @@ def birthday_of_the_month_page():
     view = df.iloc[start:start + page_size]
     st.dataframe(
         view,
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
         column_config={
             'ID': st.column_config.NumberColumn('ID'),
@@ -169,13 +169,13 @@ def birthday_of_the_month_page():
         col1, col2 = st.columns(2)
         with col1:
             if st.button(f"📧 {UI_TEXTS['publish']} {UI_TEXTS['birthday']} {UI_TEXTS['list']}",
-                       use_container_width=True,
+                       width="stretch",
                        type="primary",
                        on_click=on_publish):
                 pass
         with col2:
             if st.button(f"💾 {UI_TEXTS['download']} {UI_TEXTS['birthday']} {UI_TEXTS['list']}",
-                       use_container_width=True,
+                       width="stretch",
                        type="secondary",
                        on_click=on_download):
                 pass

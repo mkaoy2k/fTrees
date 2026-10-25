@@ -210,7 +210,7 @@ def show_reset_password_page():
                 
                 reset_button = st.form_submit_button("Reset Password", 
                                                   type="primary",
-                                                  use_container_width=True)
+                                                  width="stretch")
                 
                 if reset_button:
                     # Validate input
@@ -465,7 +465,7 @@ def show_fadmin_sidebar():
                 df = pd.DataFrame(admin_list)
                 st.dataframe(
                     df,
-                    use_container_width=False,
+                    width="content",
                     hide_index=True  # Explicitly hide the index
                 )  
             else:
@@ -492,7 +492,7 @@ def show_fadmin_sidebar():
                 df = pd.DataFrame(sub_list)
                 st.dataframe(
                     df,
-                    use_container_width=False,
+                    width="content",
                     hide_index=True  # Explicitly hide the index
                 )
             else:
@@ -555,7 +555,7 @@ def show_padmin_sidebar():
                 df = pd.DataFrame(admin_data)
                 st.dataframe(
                     df,
-                    use_container_width=False,
+                    width="content",
                     hide_index=True  # Explicitly hide the index
                 )
             else:
@@ -727,7 +727,7 @@ def search_members_page() -> None:
                 'updated_at': 'Updated At'
             },
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
             column_order=all_fields
         )
         st.markdown(

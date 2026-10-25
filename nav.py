@@ -130,7 +130,7 @@ def render_sidebar():
         if st.button(
             texts.get("logout", "Logout"),
             type="primary",
-            use_container_width=True,
+            width="stretch",
             key="nav_logout",
         ):
             email = st.session_state.get("user_email")
