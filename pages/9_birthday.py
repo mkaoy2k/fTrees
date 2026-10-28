@@ -142,7 +142,8 @@ def birthday_of_the_month_page():
                 st.error(f"❌ {fu.get_function_name()} {card_file} {UI_TEXTS['not_found']}")
                 return
             html_content = open(card_file, 'r').read()
-            st.components.v1.html(html_content, height=500)
+            # st.iframe always shows a scrollbar when the card is taller than the frame.
+            st.iframe(html_content, width="stretch", height=500, alt="Birthday card")
             publisher.publish_email(
                 subject=f"🎉 Happy Birthday Celebrations - {label} {datetime.now().year}",
                 text=text_content,

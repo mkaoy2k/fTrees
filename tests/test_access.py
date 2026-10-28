@@ -98,6 +98,7 @@ class RoleGateTests(unittest.TestCase):
         self.assertIn("&quot;", graph_text.related_popup('Ann "A"', "parent"))
         page6 = (ROOT / "pages/6_show_3G.py").read_text(encoding="utf-8")
         page7 = (ROOT / "pages/7_show_related.py").read_text(encoding="utf-8")
+        page9 = (ROOT / "pages/9_birthday.py").read_text(encoding="utf-8")
         self.assertIn("member_popup", page6)
         self.assertIn("related_popup", page7)
         self.assertIn("center_popup", page7)
@@ -107,6 +108,11 @@ class RoleGateTests(unittest.TestCase):
         self.assertIn('"enabled": false', page7)
         self.assertNotIn("graphviz", page6.lower())
         self.assertNotIn("neato", page6)
+        self.assertIn("spreadFamilyNodes", page6)
+        for page in (page6, page7, page9):
+            self.assertIn("st.iframe", page)
+            self.assertNotIn("components.v1", page)
+            self.assertNotIn("components.html", page)
 
     def test_three_generation_rows_follow_generation(self):
         import importlib.util
@@ -137,6 +143,9 @@ class RoleGateTests(unittest.TestCase):
         self.assertIn('"direction": "UD"', html)
         self.assertIn('"enabled": false', html)
         self.assertNotIn("use_DOT", html)
+        self.assertIn("function spreadFamilyNodes", html)
+        self.assertIn("function evenSlots", html)
+        self.assertEqual(html.count("drawGraph();"), 1)
 
     def test_relationship_rows_follow_generation(self):
         import importlib.util
