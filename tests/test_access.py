@@ -108,7 +108,10 @@ class RoleGateTests(unittest.TestCase):
         self.assertIn('"enabled": false', page7)
         self.assertNotIn("graphviz", page6.lower())
         self.assertNotIn("neato", page6)
-        self.assertIn("spreadFamilyNodes", page6)
+        layout = (ROOT / "graph_layout.py").read_text(encoding="utf-8")
+        self.assertIn("function spreadGraphNodes", layout)
+        self.assertIn("spread_nodes_across_iframe", page6)
+        self.assertIn("spread_nodes_across_iframe", page7)
         for page in (page6, page7, page9):
             self.assertIn("st.iframe", page)
             self.assertNotIn("components.v1", page)
@@ -143,7 +146,7 @@ class RoleGateTests(unittest.TestCase):
         self.assertIn('"direction": "UD"', html)
         self.assertIn('"enabled": false', html)
         self.assertNotIn("use_DOT", html)
-        self.assertIn("function spreadFamilyNodes", html)
+        self.assertIn("function spreadGraphNodes", html)
         self.assertIn("function evenSlots", html)
         self.assertEqual(html.count("drawGraph();"), 1)
 
@@ -174,6 +177,9 @@ class RoleGateTests(unittest.TestCase):
         self.assertIn('"enabled": false', html)
         self.assertNotIn("use_DOT", html)
         self.assertNotIn("forceAtlas2Based", html)
+        self.assertIn("function spreadGraphNodes", html)
+        self.assertIn("function evenSlots", html)
+        self.assertEqual(html.count("drawGraph();"), 1)
 
 
 class QueryAndAttemptTests(unittest.TestCase):
