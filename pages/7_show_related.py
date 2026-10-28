@@ -9,7 +9,6 @@ It shows :
 """
 
 import streamlit as st
-import streamlit.components.v1 as components
 import pyvis.network as net
 import logging
 from typing import Dict, List, Any
@@ -298,7 +297,8 @@ def main():
             # Display the graph
             graph = create_relationship_graph(relationship_data)
             graph_html = graph.generate_html()
-            components.html(graph_html, height=600, scrolling=True)
+            # st.iframe always shows a scrollbar when the graph is taller than the frame.
+            st.iframe(graph_html, width="stretch", height=600, alt="Relationship graph")
             
             # Create a container for relationship details below the graph
             with st.container():
