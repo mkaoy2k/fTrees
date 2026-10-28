@@ -15,6 +15,7 @@ from typing import Dict, List, Any
 import db_utils as dbm
 import context_utils as cu
 import funcUtils as fu
+from graph_layout import spread_nodes_across_iframe
 from graph_text import center_popup, generation_level, related_popup, relation_popup
 from nav import render_sidebar, require_role
 
@@ -125,7 +126,8 @@ def create_relationship_graph(relationship_data: Dict[str, Any]) -> net.Network:
 
     Each generation is one horizontal row, top to bottom, using the same
     hierarchical layout as the three-generation graph. Physics is off so a
-    person stays on that row.
+    person stays on that row. The shared layout script then spreads those
+    rows across the iframe, and scales the view down when labels would overlap.
     """
     # Create a new network
     graph = net.Network(
@@ -243,7 +245,7 @@ def create_relationship_graph(relationship_data: Dict[str, Any]) -> net.Network:
             color='#a9a9a9'
         )
     
-    return graph
+    return spread_nodes_across_iframe(graph)
 
 def main():
     """
