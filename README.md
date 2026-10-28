@@ -95,38 +95,73 @@ python -m unittest discover -s tests -t . -v
 
 ```text
 fTrees/
+├── .agents/              # Devin agent skills
+├── .github/              # GitHub configuration
+├── .streamlit/           # Streamlit configuration
+│   └── config.toml       # Streamlit settings
+├── archive/personal-edition/
+│   ├── me.sample.csv     # Retired fictional sample tree
+│   └── template.csv      # Retired CSV template
 ├── auth_utils.py         # Authentication utilities
+├── bday.html             # Birthday email template
 ├── case_helpers.py       # Case-form helpers
 ├── context_utils.py      # Context management
+├── data/                 # Local data (mostly untracked)
+│   └── family.db         # Local database (not in git)
+├── db_connection.py      # Database connection management
+├── db_exchange.py        # Data import/export
+├── db_families.py        # Family database operations
+├── db_members.py         # Member database operations
+├── db_relations.py      # Relationship database operations
+├── db_schema.py          # Database schema definitions
+├── db_users.py           # User database operations
 ├── db_utils.py           # Database facade
 ├── Dockerfile            # Container image
 ├── editor_paths.py       # CSV/JSON editor path checks
 ├── email_utils.py        # Email functionality
 ├── environment.yaml      # Conda env (uses the lockfile)
-├── archive/personal-edition/
-│   ├── me.sample.csv     # Retired fictional sample tree
-│   └── template.csv      # Retired CSV template
 ├── fTrees.py             # Main Streamlit app
 ├── funcUtils.py          # Utility functions
 ├── genesis.py            # Create the admin account
+├── graph_text.py         # Graph text utilities
+├── L10N.json             # Localization catalog index
+├── L10N_CN.json          # Simplified Chinese catalog
+├── L10N_DE.json          # German catalog
+├── L10N_DK.json          # Danish catalog
+├── L10N_ES.json          # Spanish catalog
+├── L10N_FR.json          # French catalog
+├── L10N_JP.json          # Japanese catalog
+├── L10N_KR.json          # Korean catalog
+├── L10N_LT.json          # Lithuanian catalog
+├── L10N_PL.json          # Polish catalog
+├── L10N_TW.json          # Traditional Chinese catalog
+├── L10N_US.json          # US English catalog
 ├── LICENSE               # MIT License
 ├── nav.py                # Shared sidebar and role gate
+├── ops_dbMgmt.py         # Database management operations
+├── pages/                # Multipage screens for fTrees.py
+│   ├── 1_usrMgmt.py      # User management
+│   ├── 2_famMgmt.py      # Family management
+│   ├── 3_csv_editor.py   # CSV editor
+│   ├── 4_json_editor.py  # JSON editor
+│   ├── 6_show_3G.py      # Three-generation graph
+│   ├── 7_show_related.py # Relationship graph
+│   ├── 8_caseMgmt.py     # Case management
+│   └── 9_birthday.py     # Birthday notifications
 ├── pyproject.toml        # Direct dependencies
 ├── requirements.txt      # Locked dependencies
-├── uv.lock               # Lockfile
+├── ruff.toml             # Ruff linting configuration
 ├── template.env.txt      # Environment template
-├── bday.html             # Birthday template
-├── data/                 # Local data (mostly untracked)
-│   └── family.db         # Local database (not in git)
-└── pages/                # Multipage screens for fTrees.py
-    ├── 1_usrMgmt.py
-    ├── 2_famMgmt.py
-    ├── 3_csv_editor.py
-    ├── 4_json_editor.py
-    ├── 6_show_3G.py
-    ├── 7_show_related.py
-    ├── 8_caseMgmt.py
-    └── 9_birthday.py
+├── tests/                # Unit tests
+│   ├── __init__.py
+│   ├── test_access.py    # Access control tests
+│   ├── test_db_layer.py  # Database layer tests
+│   ├── test_editor_paths.py # Editor path tests
+│   ├── test_l10n.py      # Localization tests
+│   ├── test_packaging.py # Packaging tests
+│   ├── test_password_auth.py # Password authentication tests
+│   └── test_regressions.py # Regression tests
+└── uv.lock               # Lockfile
 ```
 
 ## How to Use
@@ -160,7 +195,7 @@ streamlit run fTrees.py
 
 Streamlit serves the login page at `http://localhost:8501`.
 
-The three-generation page and the relationship page draw interactive HTML in the page (`streamlit.components.v1.html` around a pyvis graph). Names in the hover text are escaped. The three-generation graph and the relationship graph each place a generation on its own row, smaller generation numbers above larger ones. There is no PNG or SVG download. Relationship edges stay gray and are labeled with the relation type.
+The three-generation page and the relationship page draw interactive HTML in the page using `st.iframe` with pyvis graphs. Names in the hover text are escaped. The three-generation graph and the relationship graph each place a generation on its own row, smaller generation numbers above larger ones. There is no PNG or SVG download. Relationship edges stay gray and are labeled with the relation type.
 
 The retired personal-edition sample and CSV template are in `archive/personal-edition/`. A `data/me.csv` left on a machine is not read by this app and is not committed.
 

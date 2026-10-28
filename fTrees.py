@@ -385,7 +385,7 @@ def show_login_page():
     
     with col2:
         with st.container():
-            st.markdown(f"<h2 style='text-align: center;'>{UI_TEXTS['user']} {UI_TEXTS['login']}</h2>", unsafe_allow_html=True)
+            st.markdown(f"<h2 style='text-align: center;'>{UI_TEXTS['admin']} {UI_TEXTS['login']}</h2>", unsafe_allow_html=True)
             
             # Login form
             email = st.text_input(f"{UI_TEXTS['email']}", key="login_email")
