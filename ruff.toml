@@ -9,3 +9,5 @@ select = ["F", "E"]
 [lint.per-file-ignores]
 # Tests insert the repo root on sys.path before importing the app.
 "tests/*" = ["E402"]
+# Pages do the same so root-dir modules stay importable from pages/.
+"pages/*.py" = ["E402"]
