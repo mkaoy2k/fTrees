@@ -2,7 +2,9 @@ import os
 import re
 import secrets
 import smtplib
+import socket
 import ssl
+import time
 import logging
 from typing import List, Optional
 from email.mime.base import MIMEBase
@@ -10,6 +12,8 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email import encoders
 from dotenv import load_dotenv
+from flask import render_template, url_for
+from flask_mail import Message
 
 load_dotenv()
 
@@ -169,7 +173,7 @@ def validate_email(email):
     Returns:
         bool: True if the email is legitimate, False otherwise.
     """
-    pattern = r"^[a-zA-Z0-9-_.]+@[a-zA-Z0-9-]+\.[a-z]{2,4}$"
+    pattern = r"^[a-zA-Z0-9-_.]+@[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*\.[a-z]{2,}$"
 
     if re.match(pattern, email):
         return True
@@ -183,6 +187,204 @@ def generate_verification_token():
         str: A secure random token
     """
     return secrets.token_urlsafe(32)
+
+
+# Used when a catalog file cannot be read. Kept in both languages so the
+# instruction mail stays bilingual even if localization files are missing.
+_MEMBERSHIP_COPY_FALLBACK = {
+    "繁中": {
+        "subject": "請先向家族管理員登記後再訂閱",
+        "heading": "訂閱前請先完成家族登記",
+        "intro": "您以這個電子郵件地址申請訂閱本家族通訊。",
+        "action": "此地址尚未登記為本家族成員。請先聯絡對應的家族管理員，提供您的電子郵件地址與個人資料完成登記，之後才能訂閱。",
+        "admin_label": "家族管理員：",
+        "admin_unknown": "請向您的家族管理員登記。伺服器尚未設定管理員信箱。",
+        "ignore": "若您並未提出此申請，請忽略這封信。",
+        "closing": "祝安好",
+    },
+    "US": {
+        "subject": "Register with your family Admin before subscribing",
+        "heading": "Register before you subscribe",
+        "intro": "You asked to subscribe to this family journal with the email address below.",
+        "action": "This address is not registered as a member of this family. Contact the family Admin and register your email address together with your personal information before subscribing.",
+        "admin_label": "Family Admin:",
+        "admin_unknown": "Please register with your family Admin. This server has no admin email configured.",
+        "ignore": "If you did not ask to subscribe, you can ignore this email.",
+        "closing": "Best regards",
+    },
+}
+_MEMBERSHIP_COPY_KEYS = {
+    "subject": "SUB_NONMEMBER_SUBJECT",
+    "heading": "SUB_NONMEMBER_HEADING",
+    "intro": "SUB_NONMEMBER_INTRO",
+    "action": "SUB_NONMEMBER_ACTION",
+    "admin_label": "SUB_NONMEMBER_ADMIN",
+    "admin_unknown": "SUB_NONMEMBER_ADMIN_UNKNOWN",
+    "ignore": "SUB_NONMEMBER_IGNORE",
+    "closing": "SUB_NONMEMBER_CLOSING",
+}
+
+
+def _membership_copy():
+    """Traditional Chinese and English strings for the non-member email."""
+    catalogs = {}
+    try:
+        from funcUtils import load_ops_L10N
+        catalogs = load_ops_L10N() or {}
+    except Exception as exc:
+        log.error("Could not load localization for the membership email: %s", exc)
+
+    localized = {}
+    for lang, fallbacks in _MEMBERSHIP_COPY_FALLBACK.items():
+        catalog = catalogs.get(lang) or {}
+        localized[lang] = {}
+        for field, key in _MEMBERSHIP_COPY_KEYS.items():
+            value = catalog.get(key)
+            if isinstance(value, str) and value.strip():
+                localized[lang][field] = value
+            else:
+                localized[lang][field] = fallbacks[field]
+    subject = f"{localized['繁中']['subject']} / {localized['US']['subject']}"
+    return subject, localized["繁中"], localized["US"]
+
+
+def send_membership_instruction_email(mail, email, admin_email=None):
+    """Tell a non-member to register with the family Admin. The body is bilingual."""
+    admin_email = (admin_email or "").strip()
+    try:
+        subject, zh, en = _membership_copy()
+        html = render_template(
+            "email/register_first.html",
+            email=email,
+            admin_email=admin_email,
+            app_name=Config.APP_NAME,
+            zh=zh,
+            en=en,
+        )
+        msg = Message(
+            subject=subject,
+            recipients=[email],
+            html=html,
+            sender=Config.MAIL_DEFAULT_SENDER,
+        )
+        return _send_mail(mail, msg)
+    except Exception as exc:
+        log.error("Failed to prepare membership instruction email: %s", exc, exc_info=True)
+        return False
+
+
+def send_verification_email(mail, email, token, is_subscribe=True):
+    """Send the subscribe or unsubscribe confirmation mail."""
+    action = "subscribe" if is_subscribe else "unsubscribe"
+    subject = f"Please confirm that you want to {action} to {Config.APP_NAME}"
+    try:
+        verification_url = url_for(
+            "verify_email",
+            email=email,
+            token=token,
+            action=action,
+            _external=True,
+            _scheme="https" if "https" in Config.BASE_URL else "http",
+        )
+    except Exception as exc:
+        log.error("Failed to generate verification URL: %s", exc)
+        return False
+    try:
+        html = render_template(
+            "email/verification.html",
+            action=action,
+            verification_url=verification_url,
+            app_name=Config.APP_NAME,
+            email=email,
+        )
+        msg = Message(
+            subject=subject,
+            recipients=[email],
+            html=html,
+            sender=Config.MAIL_DEFAULT_SENDER,
+        )
+        return _send_mail(mail, msg)
+    except Exception as exc:
+        log.error("Failed to prepare verification email: %s", exc, exc_info=True)
+        return False
+
+
+def send_email(mail, emails, subject, html):
+    """Send one HTML message through Flask-Mail."""
+    try:
+        msg = Message(
+            subject=subject,
+            recipients=emails,
+            html=html,
+            sender=Config.MAIL_DEFAULT_SENDER,
+        )
+        return _send_mail(mail, msg)
+    except Exception as exc:
+        log.error("Failed to prepare email: %s", exc, exc_info=True)
+        return False
+
+
+def send_newsletter(mail, emails, blob):
+    """Render the newsletter template and send it."""
+    try:
+        html = render_template(
+            "email/newsletter.html",
+            header=blob.get("header", ""),
+            t1=blob.get("t1", ""),
+            t1_articles=blob.get("t1_articles", []),
+            t2=blob.get("t2", ""),
+            t2_title=blob.get("t2_title", ""),
+            t2_content=blob.get("t2_content", ""),
+            t2_image=blob.get("t2_image", ""),
+            t2_image_alt=blob.get("t2_image_alt", ""),
+            t2_author=blob.get("t2_author", ""),
+            t2_source=blob.get("t2_source", ""),
+            t2_src_url=blob.get("t2_src_url", ""),
+            t3=blob.get("t3", ""),
+            t3_articles=blob.get("t3_articles", []),
+            ft_url=blob.get("ft_url", ""),
+            ops_svr=blob.get("ops_svr", ""),
+            motto_btn=blob.get("motto_btn", ""),
+            motto=blob.get("motto", ""),
+            t4_greeting=blob.get("t4_greeting", ""),
+            t4_team=blob.get("t4_team", ""),
+            title=blob.get("title", "Newsletter"),
+            author_label=blob.get("author_label", "Author:"),
+            source_label=blob.get("source_label", "Source:"),
+        )
+        msg = Message(
+            subject=blob.get("title", "Newsletter"),
+            recipients=emails,
+            html=html,
+            sender=Config.MAIL_DEFAULT_SENDER,
+        )
+        return _send_mail(mail, msg)
+    except Exception as exc:
+        log.error("Failed to prepare newsletter: %s", exc, exc_info=True)
+        return False
+
+
+def _send_mail(mail, msg, max_retries=3):
+    """Send via Flask-Mail, retrying network failures."""
+    for attempt in range(max_retries):
+        try:
+            with mail.connect() as conn:
+                conn.send(msg)
+                return True
+        except smtplib.SMTPAuthenticationError as exc:
+            log.error("SMTP authentication error: %s", exc)
+            return False
+        except (smtplib.SMTPException, socket.timeout, socket.gaierror, OSError) as exc:
+            log.error("Email send attempt %s failed: %s", attempt + 1, exc)
+            if attempt == max_retries - 1:
+                return False
+            time.sleep((2 ** attempt) * 2)
+        except Exception as exc:
+            log.error("Unexpected email error: %s", exc, exc_info=True)
+            if attempt == max_retries - 1:
+                return False
+            time.sleep((2 ** attempt) * 2)
+    return False
 
 if __name__ == "__main__":
     # Initialize EmailPublisher

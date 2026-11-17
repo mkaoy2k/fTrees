@@ -21,6 +21,7 @@ _ADMINS = (
     dbm.User_State["p_admin"],
     dbm.User_State["f_admin"],
 )
+_FAMILY_ADMIN = (dbm.User_State["f_admin"],)
 _PLATFORM = (dbm.User_State["p_admin"],)
 
 # page, L10N keys, fallback label, icon, roles that may see the link.
@@ -29,6 +30,7 @@ _LINKS = (
     ("fTrees.py", ("home",), "Home", "🏠", _ALL),
     ("pages/1_usrMgmt.py", ("user", "management"), "User Management", "👤", _PLATFORM),
     ("pages/2_famMgmt.py", ("family", "management"), "Family Management", "🌲", _ADMINS),
+    ("pages/5_artMgmt.py", ("article_management",), "Article Management", "📰", _FAMILY_ADMIN),
     ("pages/8_caseMgmt.py", ("case_mgmt",), "Case Management", "📋", _ADMINS),
     ("pages/9_birthday.py", ("birthday",), "Birthday", "🎂", _ADMINS),
     ("pages/6_show_3G.py", ("MENU_QUERY_TBL_BY_3GEN",), "Show 3 Generations", "👥", _ALL),

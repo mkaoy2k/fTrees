@@ -201,6 +201,11 @@ def _create_schema(conn) -> None:
     _timestamp_trigger(cursor, "update_relations_timestamp", relations)
     _timestamp_trigger(cursor, "update_families_timestamp", families)
 
+    # Older user tables may predate family_id. Add it without rewriting rows
+    # that already have a value. NULL means the address is not in a family.
+    _ensure_column(conn, db_tables["users"], "family_id", "INTEGER")
+    _ensure_article_schema(conn)
+
 
 def _members_column_sql() -> str:
     members = quote_ident(db_tables["members"])
@@ -251,6 +256,61 @@ def _timestamp_trigger(cursor, name, table) -> None:
             UPDATE {table} SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
         END;
     """)
+
+
+def _ensure_column(conn, table: str, column: str, col_type: str) -> bool:
+    """Add a column when it is missing. Existing rows and columns stay put.
+
+    Returns True only when this call added the column.
+    """
+    if not _table_exists(conn, table):
+        return False
+    names = {row[1] for row in _table_columns(conn, table)}
+    if column in names:
+        return False
+    if not _COLUMN_TYPE.fullmatch(col_type):
+        raise ValueError(f"Refusing column type: {col_type!r}")
+    conn.execute(
+        f"ALTER TABLE {quote_ident(table)} ADD COLUMN {quote_ident(column)} {col_type}"
+    )
+    return True
+
+
+def _ensure_article_schema(conn) -> None:
+    """Create the article table, or add family_id when an older table lacks it.
+
+    The column is INTEGER DEFAULT 1. Rows that already exist when the column
+    is added are backfilled to 1. No other column and no other table is rewritten.
+    """
+    article = db_tables["article"]
+    quoted = quote_ident(article)
+    if not _table_exists(conn, article):
+        conn.execute(f"""
+            CREATE TABLE {quoted} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                content TEXT NOT NULL,
+                category TEXT NOT NULL DEFAULT 'News',
+                author TEXT,
+                source TEXT,
+                src_url TEXT,
+                image_url TEXT,
+                l10n TEXT,
+                created_at TEXT DEFAULT (datetime('now')),
+                updated_at TEXT DEFAULT (datetime('now')),
+                user_id INTEGER DEFAULT 0,
+                is_censored INTEGER DEFAULT 0,
+                family_id INTEGER DEFAULT 1
+            )
+        """)
+    else:
+        _ensure_column(conn, article, "user_id", "INTEGER DEFAULT 0")
+        if _ensure_column(conn, article, "family_id", "INTEGER DEFAULT 1"):
+            conn.execute(f"UPDATE {quoted} SET family_id = 1 WHERE family_id IS NULL")
+    conn.execute(f"CREATE INDEX IF NOT EXISTS idx_article_family ON {quoted}(family_id)")
+    columns = {row[1] for row in _table_columns(conn, article)}
+    if "updated_at" in columns:
+        _timestamp_trigger(conn.cursor(), "update_article_timestamp", quoted)
 
 
 def _table_exists(conn, table: str) -> bool:

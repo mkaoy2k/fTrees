@@ -4,6 +4,7 @@ import json
 import logging
 import streamlit as st  # pip install streamlit
 from datetime import datetime, timedelta
+from pathlib import Path
 import traceback
 
 def show_user_error(message, exc=None, *, warn=False):
@@ -240,6 +241,39 @@ def format_timestamp(ts) -> str:
             return date_time.strftime('%Y-%m-%d %H:%M:%S')
     except (ValueError, TypeError):
         return ts_str  # 解析失敗，返回原始字串
+
+def _app_path(path):
+    """Resolve a config path from the application root."""
+    candidate = Path(path)
+    if not candidate.is_absolute():
+        candidate = Path(__file__).resolve().parent / candidate
+    return candidate
+
+
+def load_menu(fn):
+    """Load the operations-server menu JSON."""
+    with open(_app_path(fn), encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+def load_page_cat(json_file):
+    """Load page-to-article-category mapping for the operations server."""
+    with open(_app_path(json_file), encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+def load_ops_L10N():
+    """Load the operations-server catalogs (separate from the Streamlit L10N files)."""
+    load_dotenv(".env")
+    index_name = os.getenv("OPS_L10N_FILE", "ops_L10N.json")
+    with open(_app_path(index_name), encoding="utf-8") as handle:
+        listing = json.load(handle)
+    catalogs = {}
+    for key, filename in listing.items():
+        with open(_app_path(filename), encoding="utf-8") as handle:
+            catalogs[key] = json.load(handle)
+    return catalogs
+
 
 def test_func():
     print(f"Function name: {get_function_name()}")

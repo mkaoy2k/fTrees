@@ -1,0 +1,85 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">{{ header }}</h1>
+    
+    <div class="row">
+        <div class="col-md-7">
+            <div class="card mb-4">
+                <div class="card-body">
+                    
+                    <form method="POST" action="{{ url_for('contact') }}" novalidate>
+                        {{ form.csrf_token }}
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        
+                        <div class="mb-3">
+                            {{ form.name.label(class="form-label") }}
+                            {{ form.name(class="form-control" + (' is-invalid' if form.name.errors else '')) }}
+                            {% if form.name.errors %}
+                                {% for error in form.name.errors %}
+                                    <div class="invalid-feedback">{{ error }}</div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            {{ form.email.label(class="form-label") }}
+                            {{ form.email(class="form-control" + (' is-invalid' if form.email.errors else '')) }}
+                            {% if form.email.errors %}
+                                {% for error in form.email.errors %}
+                                    <div class="invalid-feedback">{{ error }}</div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            {{ form.subject.label(class="form-label") }}
+                            {{ form.subject(class="form-control" + (' is-invalid' if form.subject.errors else '')) }}
+                            {% if form.subject.errors %}
+                                {% for error in form.subject.errors %}
+                                    <div class="invalid-feedback">{{ error }}</div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            {{ form.message.label(class="form-label") }}
+                            {{ form.message(class="form-control" + (' is-invalid' if form.message.errors else ''), rows=5) }}
+                            {% if form.message.errors %}
+                                {% for error in form.message.errors %}
+                                    <div class="invalid-feedback">{{ error }}</div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary">{{ form_labels.submit }}</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-5">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h3 class="h5">Contact Information</h3>
+                    <p class="mb-4">Feel free to reach out to us with any questions or feedback.</p>
+                    
+                    <h4 class="h6">Email</h4>
+                    <p><a href="mailto:{{ admin_email }}">{{ admin }}</a></p>
+                    
+                    <h4 class="h6">Office Hours</h4>
+                    <p>{{ office_days }}<br>{{ office_hours }}</p>
+                    
+                    <h4 class="h6">Mailing Address</h4>
+                    <address>
+                        {{ mailing_address }}<br>
+                        {{ mailing_city }}<br>
+                        {{ mailing_country }}
+                    </address>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

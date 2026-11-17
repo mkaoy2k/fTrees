@@ -56,12 +56,35 @@ db_tables = {
     "relations": os.getenv("TBL_RELATIONS", "relations"),
     "families": os.getenv("TBL_FAMILIES", "families"),
     "mirrors": os.getenv("TBL_MIRRORS", "mirrors"),
+    "article": os.getenv("TBL_ARTICLE", "article"),
 }
 
 Subscriber_State = {
     "active": 1,
     "pending": 0,
     "inactive": -1,
+    "in_contact": -2,
+    "all": 9,
+}
+
+Article_State = {
+    "action_taken": 2,
+    "approved": 1,
+    "pending": 0,
+    "rejected": -1,
+    "ignored": -2,
+    "all": 9,
+}
+
+Article_Categories = {
+    "news": "News",
+    "story": "Story",
+    "events": "Events",
+    "faq": "FAQ",
+    "about": "About",
+    "contact": "Contact",
+    "feedback": "Feedback",
+    "all": "all",
 }
 
 User_State = {
@@ -281,6 +304,48 @@ def get_table_columns(table: str):
     except sqlite3.Error as e:
         log.error(f"Database error in {fu.get_function_name()}: fetching table columns: {str(e)}")
         raise sqlite3.Error(f"Failed in {fu.get_function_name()}: to fetch table columns: {str(e)}")
+
+
+def normalize_family_id(value):
+    """Family id as comparable text, or None when it is blank.
+
+    Integers and strings match after stripping. ``12`` and ``\"12\"`` match.
+    ``\"012\"`` stays ``\"012\"`` and does not match ``12``.
+    """
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def family_ids_equal(left, right) -> bool:
+    """True when both family ids are present and equal after normalization."""
+    expected = normalize_family_id(left)
+    actual = normalize_family_id(right)
+    return expected is not None and expected == actual
+
+
+def normalize_subscriber_email(email):
+    """Strip and lowercase an address. None when missing or blank."""
+    if email is None or not isinstance(email, str):
+        return None
+    text = email.strip().lower()
+    return text or None
+
+
+def coerce_family_id(value):
+    """Value to store in the integer article.family_id column.
+
+    Canonical integers are stored as int. Anything else (for example a
+    non-numeric id from ``--family_id``) is stored as text. SQLite keeps
+    that text in the INTEGER column.
+    """
+    text = normalize_family_id(value)
+    if text is None:
+        return None
+    if re.fullmatch(r"-?(0|[1-9]\d*)", text):
+        return int(text)
+    return text
 
 
 def get_total_records(table: str) -> int:

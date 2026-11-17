@@ -77,7 +77,7 @@ The application is licensed under the MIT License. See `LICENSE`.
 
 ### Upgrading an existing database
 
-Back up `data/family.db` before the first start after an upgrade. The first start migrates that file in place. `init_db()` rebuilds the member and relation tables to add foreign keys, turns references that do not point at a real row into NULL, removes orphaned password-reset tokens, and hashes leftover plaintext reset tokens. It does not create a second database file. Copy the file aside first:
+Back up `data/family.db` before the first start after an upgrade. The first start migrates that file in place. `init_db()` rebuilds the member and relation tables to add foreign keys, turns references that do not point at a real row into NULL, removes orphaned password-reset tokens, and hashes leftover plaintext reset tokens. It also creates the `article` table when it is missing. If an older `article` table has no `family_id` column, the migration adds `family_id INTEGER DEFAULT 1` and backfills existing article rows with 1. Other tables and other columns are left as they are. It does not create a second database file. Copy the file aside first:
 
 ```bash
 cp -a data/family.db data/family.db.bak
@@ -108,6 +108,7 @@ fTrees/
 ├── context_utils.py      # Context management
 ├── data/                 # Local data (mostly untracked)
 │   └── family.db         # Local database (not in git)
+├── db_articles.py        # Article records, scoped by family_id
 ├── db_connection.py      # Database connection management
 ├── db_exchange.py        # Data import/export
 ├── db_families.py        # Family database operations
@@ -138,12 +139,20 @@ fTrees/
 ├── L10N_US.json          # US English catalog
 ├── LICENSE               # MIT License
 ├── nav.py                # Shared sidebar and role gate
+├── ops_svr.py            # Public journal server (waitress)
 ├── ops_dbMgmt.py         # Database management operations
+├── ops_L10N.json         # Operations-server language index
+├── ops_menu.json         # Operations-server menu
+├── page_category.json    # Which article categories fill each public page
+├── forms.py              # Feedback and contact forms
+├── static/               # Operations-server CSS
+├── templates/            # Operations-server pages and email bodies
 ├── pages/                # Multipage screens for fTrees.py
 │   ├── 1_usrMgmt.py      # User management
 │   ├── 2_famMgmt.py      # Family management
 │   ├── 3_csv_editor.py   # CSV editor
 │   ├── 4_json_editor.py  # JSON editor
+│   ├── 5_artMgmt.py      # Article management (family admin)
 │   ├── 6_show_3G.py      # Three-generation graph
 │   ├── 7_show_related.py # Relationship graph
 │   ├── 8_caseMgmt.py     # Case management
@@ -160,6 +169,7 @@ fTrees/
 │   ├── test_l10n.py      # Localization tests
 │   ├── test_packaging.py # Packaging tests
 │   ├── test_password_auth.py # Password authentication tests
+│   ├── test_family_subscribe_smoke.py # Subscribe gate and article family scope
 │   └── test_regressions.py # Regression tests
 └── uv.lock               # Lockfile
 ```
@@ -194,6 +204,26 @@ streamlit run fTrees.py
 ```
 
 Streamlit serves the login page at `http://localhost:8501`.
+
+### Article management
+
+There is no `pages/5_*.py` collision in this tree (the numbers jump from 4 to 6), so article management is `pages/5_artMgmt.py`. The sidebar link is shown only to a family admin (`users.is_admin` = family admin). Platform admins and family members do not see it. The page shows the signed-in admin's `family_id` (the value stored on that user's row at login) and lists, reviews, and deletes only that family's articles.
+
+### Operations server
+
+`ops_svr.py` is the public family journal (home, FAQ, about, feedback, subscribe). It is a Flask app served by waitress. Pass the family this process serves:
+
+```bash
+python ops_svr.py --family_id 1
+```
+
+`--family_id` overrides `FAMILY_ID` in `.env`. If both are blank, the process exits and does not serve. `waitress-serve` does not read the flag, so set `FAMILY_ID` for that process. Content pages load only articles with that `family_id`. Feedback inserts and updates write that same `family_id`. A subscriber is a row in `users` whose `family_id` equals the server's family id. The address match is case-insensitive.
+
+```bash
+python ops_svr.py --dev --family_id 1   # Flask debugger, not for production
+```
+
+The default listen address is `127.0.0.1:5566` (`OPS_SVR_HOST`, `OPS_SVR_PORT`). Language is chosen per request. Copy the new keys from `template.env.txt` into `.env` before starting the server. Do not commit `.env`.
 
 The three-generation page and the relationship page draw interactive HTML in the page using `st.iframe` with pyvis graphs. Names in the hover text are escaped. The three-generation graph and the relationship graph each place a generation on its own row, smaller generation numbers above larger ones. There is no PNG or SVG download. Relationship edges stay gray and are labeled with the relation type.
 

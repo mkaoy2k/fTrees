@@ -7,11 +7,13 @@ from db_connection import (
     USER_COLUMNS,
     Subscriber_State,
     User_State,
+    column_assignments,
     db_tables,
+    family_ids_equal,
     get_db_connection,
     log,
+    normalize_subscriber_email,
     quote_ident,
-    column_assignments,
 )
 
 
@@ -79,36 +81,35 @@ def remove_subscriber(email: str) -> bool:
     Returns:
         bool: True if the record was successfully updated, False otherwise
     """
-    if not email or not isinstance(email, str):
+    normalized = normalize_subscriber_email(email)
+    if not normalized:
         log.warning("Invalid email address provided to remove_subscriber")
         return False
-        
+
     try:
         with get_db_connection() as conn:
             cursor = conn.cursor()
-            
-            # First, check if the email exists and is active
             cursor.execute(f"""
-                SELECT id, is_active FROM {db_tables['users']} 
-                WHERE email = ?
-            """, (email,))
-            
+                SELECT id, is_active FROM {db_tables['users']}
+                WHERE LOWER(email) = ?
+                ORDER BY CASE WHEN email = ? THEN 0 ELSE 1 END, id ASC
+                LIMIT 1
+            """, (normalized, normalized))
+
             result = cursor.fetchone()
             if not result:
                 log.warning(f"Email not found: {email}")
                 return False
-                
-            # If already inactive, no need to update
+
             if result['is_active'] == Subscriber_State['inactive']:
                 log.debug(f"Email already unsubscribed: {email}")
                 return True
-                
-            # Update status to inactive
+
             cursor.execute(f"""
-                UPDATE {db_tables['users']} 
-                SET is_active = ?, updated_at = CURRENT_TIMESTAMP
-                WHERE email = ?
-            """, (Subscriber_State['inactive'], email))
+                UPDATE {db_tables['users']}
+                SET is_active = ?, token = '', updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            """, (Subscriber_State['inactive'], result['id']))
             
             conn.commit()
             
@@ -168,6 +169,32 @@ def verify_token(email: str, token: str) -> bool:
     except Exception:
         error_msg = f"Unexpected error in {fu.get_function_name()}"
         log.error(error_msg, exc_info=True)
+        return False
+
+
+def verify_subscription_token(email, token) -> bool:
+    """True when this address holds this subscription token, in any state.
+
+    The address match is case-insensitive. Pending rows can be confirmed.
+    ``verify_token`` still requires an already-active subscriber.
+    """
+    normalized = normalize_subscriber_email(email)
+    if not normalized or not token:
+        return False
+    try:
+        with get_db_connection() as conn:
+            row = conn.execute(
+                f"""
+                SELECT id FROM {db_tables['users']}
+                WHERE LOWER(email) = ? AND token = ?
+                ORDER BY CASE WHEN email = ? THEN 0 ELSE 1 END, id ASC
+                LIMIT 1
+                """,
+                (normalized, token, normalized),
+            ).fetchone()
+        return row is not None
+    except sqlite3.Error as exc:
+        log.error("Database error in verify_subscription_token: %s", exc)
         return False
 
 def get_subscribers(state: str = 'active', lang: str = None) -> List[Dict[str, Any]]:
@@ -268,21 +295,21 @@ def get_subscriber(email: str) -> Optional[Dict[str, Any]]:
         ValueError: If email is empty or not a string
         sqlite3.Error: If there's a database error
     """
-    if not email or not isinstance(email, str):
-        error_msg = "Email must be a non-empty string"
-        log.error(error_msg)
-        raise ValueError(error_msg)
-    
+    normalized = normalize_subscriber_email(email)
+    if not normalized:
+        return None
+
     try:
         with get_db_connection() as conn:
             cursor = conn.cursor()
-            
+            # Case-insensitive. Prefer the row already stored in lowercase.
             cursor.execute(f"""
                 SELECT * FROM {db_tables['users']}
-                WHERE email = ?
+                WHERE LOWER(email) = ?
+                ORDER BY CASE WHEN email = ? THEN 0 ELSE 1 END, id ASC
                 LIMIT 1
-            """, (email,))
-            
+            """, (normalized, normalized))
+
             result = cursor.fetchone()
             
             if result:
@@ -686,3 +713,184 @@ def delete_user(user_id: int) -> bool:
         error_msg = f"Unexpected error in {fu.get_function_name()}"
         log.error(error_msg, exc_info=True)
         raise
+
+
+def is_family_member(email, family_id) -> bool:
+    """True when this address's user row belongs to ``family_id``.
+
+    Membership is ``users.family_id`` equaling the family id, compared as
+    text after stripping. The address match is case-insensitive. A missing
+    row, a NULL family id, and a different family id are all non-members.
+    Those cases are not distinguished.
+    """
+    from db_connection import normalize_family_id
+
+    normalized = normalize_subscriber_email(email)
+    if not normalized or normalize_family_id(family_id) is None:
+        return False
+    user = get_subscriber(normalized)
+    if not user:
+        return False
+    return family_ids_equal(user.get("family_id"), family_id)
+
+
+def add_or_update_subscriber(user_data, update=True):
+    """Set subscription state on an existing user, or insert a subscriber row.
+
+    Does not change ``family_id`` or the admin role. The stored address is
+    rewritten to the lowercase form when that spelling is free. Returns True
+    on success.
+    """
+    if not isinstance(user_data, dict):
+        raise ValueError("Missing required fields: email, is_active, token, l10n")
+    required = ("email", "is_active", "token", "l10n")
+    missing = [field for field in required if field not in user_data]
+    if missing:
+        raise ValueError(f"Missing required fields: {', '.join(missing)}")
+    email = normalize_subscriber_email(user_data.get("email"))
+    if not email:
+        raise ValueError("Missing required fields: email")
+    is_active = user_data.get("is_active")
+    token = user_data.get("token")
+    lang = user_data.get("l10n")
+
+    existing = get_subscriber(email)
+    with get_db_connection() as conn:
+        if existing and not update:
+            raise sqlite3.IntegrityError(f"Subscriber with email {email} already exists")
+        if existing:
+            user_id = existing["id"]
+            taken = conn.execute(
+                f"SELECT id FROM {db_tables['users']} WHERE email = ? AND id != ?",
+                (email, user_id),
+            ).fetchone()
+            stored_email = existing["email"] if taken else email
+            if lang:
+                conn.execute(
+                    f"""
+                    UPDATE {db_tables['users']}
+                    SET email = ?, is_active = ?, token = ?, l10n = ?,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                    """,
+                    (stored_email, is_active, token, lang, user_id),
+                )
+            else:
+                conn.execute(
+                    f"""
+                    UPDATE {db_tables['users']}
+                    SET email = ?, is_active = ?, token = ?,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                    """,
+                    (stored_email, is_active, token, user_id),
+                )
+            return True
+
+        conn.execute(
+            f"""
+            INSERT INTO {db_tables['users']} (email, is_active, token, l10n, family_id)
+            VALUES (?, ?, ?, ?, NULL)
+            """,
+            (email, is_active, token, lang),
+        )
+        return True
+
+
+def create_user(email, state, lang=None):
+    """Insert a user row for the contact form. Does not assign a family.
+
+    This is not ``auth_utils.create_user``. It does not set a password.
+    ``family_id`` is left NULL so the address is not a member of any family
+    until an admin registers it. Returns the new id, or None.
+    """
+    import email_utils as eu
+
+    normalized = normalize_subscriber_email(email)
+    if not normalized or not eu.validate_email(normalized):
+        log.error("Invalid email provided to create_user")
+        return None
+    if state not in Subscriber_State.values():
+        log.error("Invalid state provided to create_user: %s", state)
+        return None
+    if get_subscriber(normalized):
+        log.warning("User with email %s already exists", normalized)
+        return None
+    try:
+        with get_db_connection() as conn:
+            conn.execute(
+                f"""
+                INSERT INTO {db_tables['users']} (email, is_active, l10n, family_id)
+                VALUES (?, ?, ?, NULL)
+                """,
+                (normalized, state, lang),
+            )
+            row = conn.execute("SELECT last_insert_rowid()").fetchone()
+            return row[0] if row else None
+    except sqlite3.Error as exc:
+        log.error("Database error while creating user %s: %s", normalized, exc)
+        return None
+
+
+def get_user(user_id):
+    """Return one user row by id, or None."""
+    if not isinstance(user_id, int) or user_id <= 0:
+        return None
+    try:
+        with get_db_connection() as conn:
+            row = conn.execute(
+                f"SELECT * FROM {db_tables['users']} WHERE id = ?",
+                (user_id,),
+            ).fetchone()
+        return dict(row) if row else None
+    except sqlite3.Error as exc:
+        log.error("Database error while reading user %s: %s", user_id, exc)
+        return None
+
+
+def get_user_email(user_id):
+    """Return the email for a user id, or None."""
+    user = get_user(user_id)
+    if not user:
+        return None
+    return user.get("email")
+
+
+def update_user(user_id, update_fields):
+    """Update columns on one user row. Returns the id, or None.
+
+    ``id`` and ``created_at`` are ignored. Unknown column names are ignored.
+    """
+    if not isinstance(user_id, int) or user_id <= 0:
+        return None
+    if not isinstance(update_fields, dict) or not update_fields:
+        return None
+    try:
+        with get_db_connection() as conn:
+            columns = {
+                row[1]
+                for row in conn.execute(
+                    f"PRAGMA table_info({quote_ident(db_tables['users'])})"
+                ).fetchall()
+            }
+            columns.discard("id")
+            columns.discard("created_at")
+            fields = []
+            params = []
+            for key, value in update_fields.items():
+                if key in columns and value is not None:
+                    fields.append(f"{quote_ident(key)} = ?")
+                    params.append(value)
+            if not fields:
+                return None
+            params.append(user_id)
+            cursor = conn.execute(
+                f"UPDATE {db_tables['users']} SET {', '.join(fields)} WHERE id = ?",
+                tuple(params),
+            )
+            if cursor.rowcount > 0:
+                return user_id
+            return None
+    except sqlite3.Error as exc:
+        log.error("Database error while updating user %s: %s", user_id, exc)
+        return None

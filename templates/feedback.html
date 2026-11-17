@@ -1,0 +1,117 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Alex+Brush&display=swap');
+    .spencerian-header {
+        font-family: 'Alex Brush', cursive;
+        font-size: 1.5rem;
+        font-weight: 500;
+        color: black;
+        line-height: 1.2;
+    }
+    .content-section {
+        background-color: rgb(232, 228, 167); /* Light khaki background */
+        padding: 20px;
+        border-radius: 5px;
+        color: black; /* Black text for better contrast */
+    }
+    .form-control-label, .form-text {
+        color: rgba(29, 18, 227, 0.41) !important; /* Ensure form labels are visible */
+    }
+</style>
+<div class="content-section">
+    <form method="POST" action="">
+        {{ form.hidden_tag() }}
+        <fieldset class="form-group">
+            <legend class="border-bottom mb-4 spencerian-header">{{ header }}</legend>
+            
+            <div class="form-group">
+                {{ form.title.label(class="form-control-label") }}
+                {% if form.title.errors %}
+                    {{ form.title(class="form-control form-control-lg is-invalid") }}
+                    <div class="invalid-feedback">
+                        {% for error in form.title.errors %}
+                            <span>{{ error }}</span>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    {{ form.title(class="form-control form-control-lg") }}
+                {% endif %}
+            </div>
+            
+            <div class="form-group">
+                {{ form.content.label(class="form-control-label") }}
+                {% if form.content.errors %}
+                    {{ form.content(class="form-control form-control-lg is-invalid", rows=8) }}
+                    <div class="invalid-feedback">
+                        {% for error in form.content.errors %}
+                            <span>{{ error }}</span>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    {{ form.content(class="form-control form-control-lg", rows=8) }}
+                {% endif %}
+                <small class="text-muted">You can use HTML tags for formatting</small>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group col-md-6">
+                    {{ form.author.label(class="form-control-label") }}
+                    {{ form.author(class="form-control form-control-lg") }}
+                </div>
+                <div class="form-group col-md-6">
+                {{ form.l10n.label(class="form-control-label") }}
+                {{ form.l10n(class="form-control form-control-lg") }}
+                </div>
+            </div>
+            
+            <div class="form-group">
+                {{ form.source.label(class="form-control-label") }}
+                {{ form.source(class="form-control form-control-lg") }}
+                <small class="text-muted">Source of the article (e.g., website, organization)</small>
+            </div>
+             
+            <div class="form-group">
+                {{ form.source_url.label(class="form-control-label") }}
+                {% if form.source_url.errors %}
+                    {{ form.source_url(class="form-control form-control-lg is-invalid") }}
+                    <div class="invalid-feedback">
+                        {% for error in form.source_url.errors %}
+                            <span>{{ error }}</span>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    {{ form.source_url(class="form-control form-control-lg") }}
+                {% endif %}
+                <small class="text-muted">URL of the original article (if applicable)</small>
+            </div>
+            
+            <div class="form-group">
+                {{ form.image_url.label(class="form-control-label") }}
+                {{ form.image_url(class="form-control form-control-lg") }}
+                <small class="text-muted">URL of an image to include with the article (optional)</small>
+            </div>
+            
+            <div class="form-group">
+                {{ form.email.label(class="form-control-label") }}
+                {% if form.email.errors %}
+                    {{ form.email(class="form-control form-control-lg is-invalid") }}
+                    <div class="invalid-feedback">
+                        {% for error in form.email.errors %}
+                            <span>{{ error }}</span>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    {{ form.email(class="form-control form-control-lg") }}
+                {% endif %}
+                <small class="text-muted">Your email address (for follow-up if needed)</small>
+            </div>
+            
+        </fieldset>
+        <div class="form-group">
+            {{ form.submit(class="btn btn-outline-info") }}
+        </div>
+    </form>
+</div>
+{% endblock content %}
