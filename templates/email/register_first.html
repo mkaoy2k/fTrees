@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ zh.subject }} / {{ en.subject }} - {{ app_name }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .footer {
+            margin-top: 30px;
+            font-size: 12px;
+            color: #666;
+        }
+        hr {
+            border: 0;
+            border-top: 1px solid #ddd;
+            margin: 28px 0;
+        }
+    </style>
+</head>
+<body>
+    <div lang="zh-Hant">
+        <h2>{{ zh.heading }}</h2>
+        <p>{{ zh.intro }}</p>
+        <p><strong>{{ email }}</strong></p>
+        <p>{{ zh.action }}</p>
+        {% if admin_email %}
+        <p>{{ zh.admin_label }} <a href="mailto:{{ admin_email }}">{{ admin_email }}</a></p>
+        {% else %}
+        <p>{{ zh.admin_unknown }}</p>
+        {% endif %}
+        <p>{{ zh.ignore }}</p>
+        <div class="footer">
+            <p>{{ zh.closing }}<br>{{ app_name }}</p>
+        </div>
+    </div>
+    <hr>
+    <div lang="en">
+        <h2>{{ en.heading }}</h2>
+        <p>{{ en.intro }}</p>
+        <p><strong>{{ email }}</strong></p>
+        <p>{{ en.action }}</p>
+        {% if admin_email %}
+        <p>{{ en.admin_label }} <a href="mailto:{{ admin_email }}">{{ admin_email }}</a></p>
+        {% else %}
+        <p>{{ en.admin_unknown }}</p>
+        {% endif %}
+        <p>{{ en.ignore }}</p>
+        <div class="footer">
+            <p>{{ en.closing }},<br>The {{ app_name }} Team</p>
+        </div>
+    </div>
+</body>
+</html>

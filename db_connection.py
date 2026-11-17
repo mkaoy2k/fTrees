@@ -56,12 +56,35 @@ db_tables = {
     "relations": os.getenv("TBL_RELATIONS", "relations"),
     "families": os.getenv("TBL_FAMILIES", "families"),
     "mirrors": os.getenv("TBL_MIRRORS", "mirrors"),
+    "article": os.getenv("TBL_ARTICLE", "article"),
 }
 
 Subscriber_State = {
     "active": 1,
     "pending": 0,
     "inactive": -1,
+    "in_contact": -2,
+    "all": 9,
+}
+
+Article_State = {
+    "action_taken": 2,
+    "approved": 1,
+    "pending": 0,
+    "rejected": -1,
+    "ignored": -2,
+    "all": 9,
+}
+
+Article_Categories = {
+    "news": "News",
+    "story": "Story",
+    "events": "Events",
+    "faq": "FAQ",
+    "about": "About",
+    "contact": "Contact",
+    "feedback": "Feedback",
+    "all": "all",
 }
 
 User_State = {
@@ -281,6 +304,60 @@ def get_table_columns(table: str):
     except sqlite3.Error as e:
         log.error(f"Database error in {fu.get_function_name()}: fetching table columns: {str(e)}")
         raise sqlite3.Error(f"Failed in {fu.get_function_name()}: to fetch table columns: {str(e)}")
+
+
+def parse_family_id(value):
+    """Integer family id, or None when the value is blank.
+
+    ``1``, ``\"1\"``, and ``\" 01 \"`` are all ``1``. A non-numeric value
+    raises ValueError. Booleans are rejected.
+    """
+    if isinstance(value, bool):
+        raise ValueError(f"family_id must be an integer, got {value!r}")
+    if value is None:
+        return None
+    if isinstance(value, int):
+        return value
+    text = str(value).strip()
+    if not text:
+        return None
+    if not re.fullmatch(r"[+-]?\d+", text):
+        raise ValueError(f"family_id must be an integer, got {value!r}")
+    return int(text)
+
+
+def normalize_family_id(value):
+    """Decimal text for an integer family id, or None when it is blank.
+
+    Non-numeric values raise ValueError. Prefer ``parse_family_id`` for compares.
+    """
+    number = parse_family_id(value)
+    if number is None:
+        return None
+    return str(number)
+
+
+def family_ids_equal(left, right) -> bool:
+    """True when both values are present and are the same integer family id."""
+    try:
+        expected = parse_family_id(left)
+        actual = parse_family_id(right)
+    except ValueError:
+        return False
+    return expected is not None and expected == actual
+
+
+def normalize_subscriber_email(email):
+    """Strip and lowercase an address. None when missing or blank."""
+    if email is None or not isinstance(email, str):
+        return None
+    text = email.strip().lower()
+    return text or None
+
+
+def coerce_family_id(value):
+    """Integer stored in article.family_id. Blank is None. Non-numeric raises."""
+    return parse_family_id(value)
 
 
 def get_total_records(table: str) -> int:

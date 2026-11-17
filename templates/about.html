@@ -1,0 +1,14 @@
+{% extends "layout.html" %} {% block content %}
+<h1 class="mb-3">{{ header }}</h1>
+
+<!-- about -->
+<br>
+<!-- introduction -->
+<h3 class="article-note">{{ introduction }}</h3>
+<div class="content-block">{{ body[0]|safe }}</div><br>
+
+<!-- source codeis in GitHub -->
+<h3 class="article-note">{{ repository }}</h3>
+<div class="content-block">{{ body[1]|safe }}</div><br>
+
+{% endblock content %}

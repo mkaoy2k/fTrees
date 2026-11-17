@@ -55,6 +55,12 @@ class RoleGateTests(unittest.TestCase):
         self.assertIn("pages/2_famMgmt.py", admin_pages)
         self.assertIn("pages/8_caseMgmt.py", admin_pages)
         self.assertIn("pages/9_birthday.py", admin_pages)
+        self.assertIn("pages/5_artMgmt.py", admin_pages)
+        article = next(item["label"] for item in admin if item["page"] == "pages/5_artMgmt.py")
+        self.assertEqual(article, "Article Management")
+        platform_pages = [item["page"] for item in nav.navigation_links(dbm.User_State["p_admin"], texts)]
+        self.assertIn("pages/5_artMgmt.py", platform_pages)
+        self.assertNotIn("pages/5_artMgmt.py", member_pages)
         family = next(item["label"] for item in admin if item["page"] == "pages/2_famMgmt.py")
         self.assertEqual(family, "Familia Gestion")
         three = next(item["label"] for item in admin if item["page"] == "pages/6_show_3G.py")
@@ -75,6 +81,7 @@ class RoleGateTests(unittest.TestCase):
             "pages/7_show_related.py",
             "pages/8_caseMgmt.py",
             "pages/9_birthday.py",
+            "pages/5_artMgmt.py",
         ):
             source = (ROOT / name).read_text(encoding="utf-8")
             self.assertIn("require_role", source, name)

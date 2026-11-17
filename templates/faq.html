@@ -1,0 +1,30 @@
+{% extends "layout.html" %} 
+
+{% block content %}
+<h1 class="mb-3">{{ header }}</h1>
+
+<!-- faq list -->
+{% for i in range(questions|length) %}
+<article class="media content-section">
+  {% if authors[i] %}
+  <img
+    class="rounded-circle article-img"
+    src="{{ authors[i] }}"
+    alt="Author"
+  />
+  {% endif %}
+  <div class="media-body">
+    <h3 class="article-title">{{ questions[i] }}</h3>
+    <p class="article-content">{{ answers[i]|safe }}</p>
+    {% if images[i] %}
+    <img 
+      src="{{ images[i] }}" 
+      alt="FAQ Image {{ i+1 }}"
+      style="max-width: 100%; height: auto; margin: 10px 0;"
+    >
+    {% endif %}
+  </div>
+</article>
+{% endfor %}
+
+{% endblock content %}

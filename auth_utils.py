@@ -339,6 +339,34 @@ def verify_fadmin(email, password):
         fu.show_user_error("Error verifying admin", e)
         return False
 
+def verify_admin(email, password):
+    """True when email and password match a platform or family admin.
+
+    Used by the operations server. Does not write the Streamlit session.
+    The address match is case-insensitive.
+    """
+    if not email or not password or not isinstance(email, str):
+        return False
+    try:
+        with dbm.get_db_connection() as conn:
+            row = conn.execute(
+                f"""
+                SELECT password_hash, salt, is_admin
+                FROM {dbm.db_tables['users']}
+                WHERE LOWER(email) = LOWER(?)
+                """,
+                (email.strip(),),
+            ).fetchone()
+        if row is None:
+            return False
+        if row["is_admin"] not in (dbm.User_State["p_admin"], dbm.User_State["f_admin"]):
+            return False
+        return _password_ok(password, row["salt"], row["password_hash"])
+    except sqlite3.Error as exc:
+        logging.getLogger("ftpe").error("Error verifying admin", exc_info=exc)
+        return False
+
+
 def create_password_reset_token(email: str, expires_hours: int = None):
     """Create a password reset token for the given email
     

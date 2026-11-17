@@ -58,6 +58,20 @@ FILE_SYSTEM_SETTINGS = {
 }
 # ===== End of Module Settings =====
 
+def current_family_id(app_context=None):
+    """Family id of the signed-in user.
+
+    ``verify_fadmin``, ``verify_fmember``, and ``verify_padmin`` copy
+    ``users.family_id`` onto ``app_context['family_id']`` at login. That
+    value is the current family for article management.
+    """
+    if app_context is None:
+        app_context = st.session_state.get("app_context")
+    if not isinstance(app_context, dict):
+        return None
+    return app_context.get("family_id")
+
+
 def init_context() -> Dict[str, Any]:
     """
     Initialize and return a dictionary containing 

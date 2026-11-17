@@ -1,0 +1,134 @@
+body {
+  background: #fafafa;
+  color: #333333;
+  margin-top: 5rem;
+  position: relative;
+}
+
+/* Sticky sidebar styles */
+.sticky-sidebar {
+  position: -webkit-sticky;
+  position: sticky;
+  top: 6rem; /* Space from top when it becomes sticky */
+  height: calc(100vh - 7rem); /* Viewport height minus some padding */
+  overflow-y: auto; /* Add scroll if content is taller than viewport */
+  padding-right: 15px;
+}
+
+/* Prevent horizontal scrollbar */
+.sticky-sidebar::-webkit-scrollbar {
+  width: 5px;
+}
+
+.sticky-sidebar::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+.sticky-sidebar::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 5px;
+}
+
+.sticky-sidebar::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  color: #444444;
+}
+
+.bg-steel {
+  background-color: #5f788a;
+}
+
+.site-header .navbar-nav .nav-link {
+  color: #cbd5db;
+}
+
+.site-header .navbar-nav .nav-link:hover {
+  color: #ffffff;
+}
+
+.site-header .navbar-nav .nav-link.active {
+  font-weight: 500;
+}
+
+.content-section {
+  background: #ffffff;
+  padding: 10px 20px;
+  border: 1px solid #dddddd;
+  border-radius: 3px;
+  margin-bottom: 20px;
+}
+
+.article-title {
+  color: #ea1919;
+}
+
+a.article-title:hover {
+  color: #21f055;
+  text-decoration: none;
+}
+
+.article-content {
+  white-space: pre-line;
+}
+
+.article-img {
+  height: 65px;
+  width: 65px;
+  margin-right: 16px;
+}
+
+.article-note {
+  color: #0a29f0;
+}
+
+.article-metadata {
+  padding-bottom: 1px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid #e3e3e3;
+}
+
+.article-metadata a:hover {
+  color: #333;
+  text-decoration: none;
+}
+
+.article-svg {
+  width: 25px;
+  height: 25px;
+  vertical-align: middle;
+}
+
+.account-img {
+  height: 125px;
+  width: 125px;
+  margin-right: 20px;
+  margin-bottom: 16px;
+}
+
+.account-heading {
+  font-size: 2.5rem;
+}
+
+.button {
+  display: inline-block;
+  padding: 10px 20px;
+  margin: 20px 0;
+  background-color: #007bff;
+  color: white;
+  text-decoration: none;
+  border-radius: 4px;
+}
+
+.footer {
+  margin-top: 30px;
+  font-size: 12px;
+  color: #666;
+}
