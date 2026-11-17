@@ -76,7 +76,11 @@ def _send_reset_if_registered(email):
         if not token:
             log.error("Password reset token was not created")
             return
-        reset_link = f"{os.getenv('FT_SVR', 'http://localhost:8501')}/?token={token}"
+        # Get base URL and convert HTTPS to HTTP for ngrok URLs to avoid Safari SSL issues
+        base_url = os.getenv('FT_SVR', 'http://localhost:8501')
+        if base_url.startswith('https://') and 'ngrok' in base_url:
+            base_url = base_url.replace('https://', 'http://')
+        reset_link = f"{base_url}/?token={token}"
         app_name = os.getenv("APP_NAME", "FamilyTrees")
         subject = "Password Reset Request"
         text = f"""
