@@ -11,9 +11,11 @@ when no family id is configured. Email matching in this flow is
 case-insensitive. Article reads and writes stay inside that family.
 """
 
+import contextlib
 import os
 import re
 import sqlite3
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -30,7 +32,7 @@ os.environ["DB_NAME"] = _DB
 os.environ["L10N"] = "繁中"
 os.environ["FLASK_SECRET_KEY"] = "family-subscribe-smoke"
 os.environ["LOGGING"] = "ERROR"
-os.environ["FAMILY_ID"] = "fam-1"
+os.environ["FAMILY_ID"] = "1"
 os.environ.pop("DB_ADMIN", None)
 
 import db_utils  # noqa: E402
@@ -41,7 +43,7 @@ import nav  # noqa: E402
 import ops_svr  # noqa: E402
 
 BASE = "https://localhost"
-FAMILY = "fam-1"
+FAMILY = 1
 NEXT_STEP = "Please check {email} for the next step."
 NEXT_STEP_ZH = "請查看 {email} 以完成下一步。"
 SEND_FAILED = "Failed to send email. Please try again later."
@@ -87,7 +89,7 @@ class FamilySubscribeSmokeTest(unittest.TestCase):
         self._csrf = ops_svr.app.config.get("WTF_CSRF_ENABLED", True)
         self._family_env = os.environ.get("FAMILY_ID")
         ops_svr.app.config["WTF_CSRF_ENABLED"] = False
-        os.environ["FAMILY_ID"] = FAMILY
+        os.environ["FAMILY_ID"] = str(FAMILY)
         ops_svr.app.config["FAMILY_ID"] = FAMILY
         with db_utils.get_db_connection() as conn:
             conn.execute(f"DELETE FROM {db_utils.db_tables['users']}")
@@ -116,24 +118,26 @@ class FamilySubscribeSmokeTest(unittest.TestCase):
 
     def test_parser_reads_family_id_and_cli_overrides_env(self):
         parser = ops_svr.build_parser()
-        specified = parser.parse_args(["--family_id", "kao", "--dev"])
-        self.assertEqual(specified.family_id, "kao")
+        specified = parser.parse_args(["--family_id", "12", "--dev"])
+        self.assertEqual(specified.family_id, "12")
         self.assertTrue(specified.dev)
         omitted = parser.parse_args([])
         self.assertIsNone(omitted.family_id)
         self.assertFalse(omitted.dev)
-        self.assertEqual(
-            ops_svr.cli_family_id(["--dev", "--family_id", "kao"]),
-            "kao",
-        )
-        self.assertEqual(ops_svr.cli_family_id(["--family_id=kao"]), "kao")
+        self.assertEqual(ops_svr.cli_family_id(["--dev", "--family_id", "12"]), "12")
+        self.assertEqual(ops_svr.cli_family_id(["--family_id=12"]), "12")
         self.assertIsNone(ops_svr.cli_family_id(["--dev"]))
 
-        os.environ["FAMILY_ID"] = "from-env"
-        self.assertEqual(ops_svr.configure_family_id(None), "from-env")
-        self.assertEqual(ops_svr.configure_family_id("  cli-id  "), "cli-id")
-        self.assertEqual(ops_svr.app.config["FAMILY_ID"], "cli-id")
-        self.assertEqual(ops_svr.configure_family_id("   "), "from-env")
+        os.environ["FAMILY_ID"] = "4"
+        self.assertEqual(ops_svr.configure_family_id(None), 4)
+        self.assertEqual(ops_svr.configure_family_id("  12  "), 12)
+        self.assertEqual(ops_svr.app.config["FAMILY_ID"], 12)
+        self.assertEqual(ops_svr.configure_family_id("   "), 4)
+        with self.assertRaises(SystemExit) as bad:
+            ops_svr.configure_family_id("kao")
+        self.assertIn("numeric", str(bad.exception).lower())
+        self.assertNotEqual(getattr(bad.exception, "code", 1), 0)
+        self.assertIsNone(ops_svr.active_family_id())
 
     def test_blank_family_id_refuses_to_start(self):
         os.environ["FAMILY_ID"] = "   "
@@ -208,34 +212,31 @@ class FamilySubscribeSmokeTest(unittest.TestCase):
             db_utils.database_name = previous
 
     def test_membership_is_family_id_on_the_user_row(self):
-        _insert_user("member@example.com", " fam-1 ")
-        _insert_user("other@example.com", "other-family")
+        _insert_user("member@example.com", 1)
+        _insert_user("other@example.com", 2)
         _insert_user("blank@example.com", None)
         _insert_user("numbered@example.com", 12)
-        self.assertTrue(db_utils.is_family_member("member@example.com", "fam-1"))
-        self.assertTrue(db_utils.is_family_member("  MEMBER@example.com ", "fam-1"))
-        self.assertTrue(db_utils.is_family_member("member@example.com", " fam-1 "))
+        self.assertTrue(db_utils.is_family_member("member@example.com", 1))
+        self.assertTrue(db_utils.is_family_member("  MEMBER@example.com ", "1"))
+        self.assertTrue(db_utils.is_family_member("member@example.com", " 1 "))
         self.assertFalse(db_utils.is_family_member("member@example.com", "Fam-1"))
-        self.assertFalse(db_utils.is_family_member("other@example.com", "fam-1"))
-        self.assertFalse(db_utils.is_family_member("blank@example.com", "fam-1"))
-        self.assertFalse(db_utils.is_family_member("missing@example.com", "fam-1"))
+        self.assertFalse(db_utils.is_family_member("other@example.com", 1))
+        self.assertFalse(db_utils.is_family_member("blank@example.com", 1))
+        self.assertFalse(db_utils.is_family_member("missing@example.com", 1))
         self.assertFalse(db_utils.is_family_member("member@example.com", None))
         self.assertFalse(db_utils.is_family_member("member@example.com", "  "))
         self.assertTrue(db_utils.is_family_member("numbered@example.com", "12"))
-        self.assertFalse(db_utils.is_family_member("numbered@example.com", "012"))
+        self.assertTrue(db_utils.is_family_member("numbered@example.com", "012"))
 
         user = _user("blank@example.com")
-        self.assertEqual(
-            db_utils.update_user(user["id"], {"family_id": "fam-1"}),
-            user["id"],
-        )
-        self.assertTrue(db_utils.is_family_member("blank@example.com", "fam-1"))
+        self.assertEqual(db_utils.update_user(user["id"], {"family_id": 1}), user["id"])
+        self.assertTrue(db_utils.is_family_member("blank@example.com", 1))
 
     def test_gated_member_and_non_member_see_the_same_page(self):
         ops_svr.app.config["FAMILY_ID"] = FAMILY
         os.environ["DB_ADMIN"] = "admin@example.com"
         _insert_user("member@example.com", FAMILY, token="keep-me")
-        _insert_user("other@example.com", "other-family", is_active=1, token="leave-me")
+        _insert_user("other@example.com", 2, is_active=1, token="leave-me")
 
         with patch.object(ops_svr.eu, "send_verification_email", return_value=True) as verify, \
              patch.object(ops_svr.eu, "send_membership_instruction_email", return_value=True) as instruction:
@@ -282,7 +283,7 @@ class FamilySubscribeSmokeTest(unittest.TestCase):
         other_row = _user("other@example.com")
         self.assertEqual(other_row["is_active"], 1)
         self.assertEqual(other_row["token"], "leave-me")
-        self.assertEqual(other_row["family_id"], "other-family")
+        self.assertEqual(other_row["family_id"], 2)
         self.assertIsNone(_user("stranger@example.com"))
 
     def test_gated_failure_page_is_the_same_for_member_and_stranger(self):
@@ -329,7 +330,7 @@ class FamilySubscribeSmokeTest(unittest.TestCase):
         self.assertEqual(row["is_active"], db_utils.Subscriber_State["pending"])
         self.assertEqual(_count_users(), 1)
 
-        _insert_user("Other@Example.com", "other-family")
+        _insert_user("Other@Example.com", 2)
         found = _user("other@example.com")
         self.assertEqual(found["email"], "Other@Example.com")
         _insert_user("other@example.com", FAMILY)
@@ -395,7 +396,7 @@ class FamilySubscribeSmokeTest(unittest.TestCase):
     def test_verify_activates_a_member_and_blocks_anyone_else(self):
         ops_svr.app.config["FAMILY_ID"] = FAMILY
         _insert_user("member@example.com", FAMILY, token="good-token")
-        _insert_user("other@example.com", "other-family", token="other-token", is_active=-1)
+        _insert_user("other@example.com", 2, token="other-token", is_active=-1)
 
         client = ops_svr.app.test_client()
         with client.session_transaction() as sess:
@@ -455,7 +456,7 @@ class FamilySubscribeSmokeTest(unittest.TestCase):
     def test_feedback_is_member_only_and_hides_membership(self):
         os.environ["DB_ADMIN"] = "admin@example.com"
         _insert_user("Member@Example.com", FAMILY, is_active=0, token="pending-token")
-        _insert_user("other@example.com", "other-family", is_active=1, token="leave-me")
+        _insert_user("other@example.com", 2, is_active=1, token="leave-me")
         before = _count_users()
 
         with patch.object(ops_svr.eu, "send_verification_email", return_value=True) as verify, \
@@ -490,7 +491,7 @@ class FamilySubscribeSmokeTest(unittest.TestCase):
         self.assertIsNone(_user("stranger@example.com"))
         other_row = _user("other@example.com")
         self.assertEqual(other_row["token"], "leave-me")
-        self.assertEqual(other_row["family_id"], "other-family")
+        self.assertEqual(other_row["family_id"], 2)
         self.assertEqual(_count_articles(), 0)
 
         _insert_user("writer@example.com", FAMILY, is_active=db_utils.Subscriber_State["active"])
@@ -504,7 +505,7 @@ class FamilySubscribeSmokeTest(unittest.TestCase):
             stored_family = conn.execute(
                 f"SELECT family_id FROM {db_utils.db_tables['article']}"
             ).fetchone()
-        self.assertEqual(db_utils.normalize_family_id(stored_family["family_id"]), FAMILY)
+        self.assertEqual(stored_family["family_id"], FAMILY)
         self.assertIn("submitted for review", accepted_body)
         verify_again.assert_not_called()
         instruction_again.assert_not_called()
@@ -562,11 +563,18 @@ class FamilySubscribeSmokeTest(unittest.TestCase):
         self.assertIsNotNone(other)
         found = db_utils.get_articles("News", family_id=1)
         self.assertEqual([row["title"] for row in found], ["Our family news"])
+        self.assertIn("family_id", found[0])
+        self.assertEqual(found[0]["family_id"], 1)
+        everyone = db_utils.get_articles("News", all_families=True)
+        self.assertEqual(
+            sorted(row["title"] for row in everyone),
+            ["Other family news", "Our family news"],
+        )
         self.assertIsNone(db_utils.get_article_byId(other, family_id=1))
         self.assertFalse(db_utils.delete_article(ours, family_id=2))
         self.assertEqual(db_utils.get_article_byId(ours, family_id=1)["title"], "Our family news")
 
-        ops_svr.app.config["FAMILY_ID"] = "1"
+        ops_svr.app.config["FAMILY_ID"] = 1
         ops_svr.init_globals()
         client = ops_svr.app.test_client()
         with client.session_transaction() as sess:
@@ -580,42 +588,43 @@ class FamilySubscribeSmokeTest(unittest.TestCase):
         self.assertIsNone(db_utils.get_article_byId(ours, family_id=1))
         self.assertEqual(db_utils.get_article_byId(other, family_id=2)["title"], "Other family news")
 
-    def test_article_page_is_family_admin_only(self):
-        allowed = (db_utils.User_State["f_admin"],)
-        self.assertEqual(
-            nav.role_is_allowed(True, db_utils.User_State["f_admin"], allowed),
-            "ok",
-        )
-        self.assertEqual(
-            nav.role_is_allowed(True, db_utils.User_State["p_admin"], allowed),
-            "denied",
-        )
-        self.assertEqual(
-            nav.role_is_allowed(True, db_utils.User_State["f_member"], allowed),
-            "denied",
-        )
-        self.assertEqual(
-            nav.role_is_allowed(False, db_utils.User_State["f_admin"], allowed),
-            "login",
-        )
+    def test_article_page_is_open_to_platform_and_family_admins(self):
+        allowed = (db_utils.User_State["p_admin"], db_utils.User_State["f_admin"])
+        self.assertEqual(nav.role_is_allowed(True, db_utils.User_State["f_admin"], allowed), "ok")
+        self.assertEqual(nav.role_is_allowed(True, db_utils.User_State["p_admin"], allowed), "ok")
+        self.assertEqual(nav.role_is_allowed(True, db_utils.User_State["f_member"], allowed), "denied")
+        self.assertEqual(nav.role_is_allowed(False, db_utils.User_State["f_admin"], allowed), "login")
         admin_pages = [item["page"] for item in nav.navigation_links(db_utils.User_State["f_admin"])]
         member_pages = [item["page"] for item in nav.navigation_links(db_utils.User_State["f_member"])]
         platform_pages = [item["page"] for item in nav.navigation_links(db_utils.User_State["p_admin"])]
         self.assertIn("pages/5_artMgmt.py", admin_pages)
+        self.assertIn("pages/5_artMgmt.py", platform_pages)
         self.assertNotIn("pages/5_artMgmt.py", member_pages)
-        self.assertNotIn("pages/5_artMgmt.py", platform_pages)
         source = (ROOT / "pages" / "5_artMgmt.py").read_text(encoding="utf-8")
         self.assertIn("require_role", source)
         self.assertIn("render_sidebar", source)
         self.assertIn("Current family_id", source)
+        self.assertIn("All families", source)
+        self.assertIn("create_article_family_id", source)
         self.assertIn('User_State["f_admin"]', source)
-        self.assertNotIn('User_State["p_admin"]', source)
+        self.assertIn('User_State["p_admin"]', source)
         self.assertNotIn('User_State["f_member"]', source)
+        platform = db_utils.User_State["p_admin"]
+        wide = db_utils.article_access_scope(platform, 0, platform_admin=platform, filter_all=True)
+        self.assertEqual(wide, {"family_id": None, "all_families": True})
+        picked = db_utils.article_access_scope(
+            platform, 0, platform_admin=platform, filter_all=False, filter_family_id="4",
+        )
+        self.assertEqual(picked, {"family_id": 4, "all_families": False})
+        family = db_utils.article_access_scope(
+            db_utils.User_State["f_admin"], 3, platform_admin=platform, filter_all=True, filter_family_id=9,
+        )
+        self.assertEqual(family, {"family_id": 3, "all_families": False})
         self.assertEqual(cu_family(None), None)
         self.assertEqual(cu_family({"family_id": 7}), 7)
 
     def test_feedback_update_keeps_the_server_family(self):
-        _insert_user("writer@example.com", "fam-1", is_active=db_utils.Subscriber_State["active"])
+        _insert_user("writer@example.com", FAMILY, is_active=db_utils.Subscriber_State["active"])
         created = db_utils.add_or_update_article({
             "title": "Family picnic notes",
             "content": "A note long enough to pass the feedback form.",
@@ -637,8 +646,54 @@ class FamilySubscribeSmokeTest(unittest.TestCase):
         self.assertEqual(updated, created)
         row = db_utils.get_article_byId(created, family_id=FAMILY)
         self.assertEqual(row["content"], "Updated for this family.")
-        self.assertEqual(db_utils.normalize_family_id(row["family_id"]), FAMILY)
+        self.assertEqual(row["family_id"], FAMILY)
         self.assertIsNone(db_utils.get_article_byId(created, family_id=2))
+
+
+    def test_non_numeric_family_id_refuses_to_start(self):
+        env = os.environ.copy()
+        env["FAMILY_ID"] = "kao"
+        env["LOGGING"] = "ERROR"
+        proc = subprocess.run(
+            [sys.executable, "ops_svr.py", "--family_id", "fam-1"],
+            cwd=ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("numeric", (proc.stderr + proc.stdout).lower())
+
+        env.pop("FAMILY_ID", None)
+        blank = subprocess.run(
+            [sys.executable, "ops_svr.py"],
+            cwd=ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertNotEqual(blank.returncode, 0)
+        self.assertIn("family id", (blank.stderr + blank.stdout).lower())
+
+    def test_batch_editor_filter_is_one_integer_family(self):
+        import ops_artBatch
+
+        self.assertEqual(ops_artBatch.article_family_filter(2), "family_id = 2")
+        self.assertEqual(ops_artBatch.article_family_filter(" 02 "), "family_id = 2")
+        with self.assertRaises(ValueError):
+            ops_artBatch.article_family_filter("fam-1")
+        parser = ops_artBatch.build_parser()
+        self.assertEqual(parser.parse_args(["--family-id", "7"]).family_id, "7")
+        with open(os.devnull, "w") as sink, contextlib.redirect_stderr(sink):
+            with self.assertRaises(SystemExit):
+                parser.parse_args([])
+        project = (ROOT / "pyproject.toml").read_text(encoding="utf-8").lower()
+        direct = project.split("[project.optional-dependencies]", 1)[0]
+        self.assertNotIn("pyqt", direct)
+        self.assertIn("pyqt5", project)
+        self.assertNotIn("pyqt", (ROOT / "requirements.txt").read_text(encoding="utf-8").lower())
 
 
 def cu_family(value):

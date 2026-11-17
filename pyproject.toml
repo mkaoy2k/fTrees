@@ -19,5 +19,8 @@ dependencies = [
     "email-validator>=2.2.0",
 ]
 
+[project.optional-dependencies]
+qt = ["pyqt5>=5.15.11"]
+
 [tool.uv]
 package = false

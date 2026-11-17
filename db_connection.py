@@ -306,22 +306,44 @@ def get_table_columns(table: str):
         raise sqlite3.Error(f"Failed in {fu.get_function_name()}: to fetch table columns: {str(e)}")
 
 
-def normalize_family_id(value):
-    """Family id as comparable text, or None when it is blank.
+def parse_family_id(value):
+    """Integer family id, or None when the value is blank.
 
-    Integers and strings match after stripping. ``12`` and ``\"12\"`` match.
-    ``\"012\"`` stays ``\"012\"`` and does not match ``12``.
+    ``1``, ``\"1\"``, and ``\" 01 \"`` are all ``1``. A non-numeric value
+    raises ValueError. Booleans are rejected.
     """
+    if isinstance(value, bool):
+        raise ValueError(f"family_id must be an integer, got {value!r}")
     if value is None:
         return None
+    if isinstance(value, int):
+        return value
     text = str(value).strip()
-    return text or None
+    if not text:
+        return None
+    if not re.fullmatch(r"[+-]?\d+", text):
+        raise ValueError(f"family_id must be an integer, got {value!r}")
+    return int(text)
+
+
+def normalize_family_id(value):
+    """Decimal text for an integer family id, or None when it is blank.
+
+    Non-numeric values raise ValueError. Prefer ``parse_family_id`` for compares.
+    """
+    number = parse_family_id(value)
+    if number is None:
+        return None
+    return str(number)
 
 
 def family_ids_equal(left, right) -> bool:
-    """True when both family ids are present and equal after normalization."""
-    expected = normalize_family_id(left)
-    actual = normalize_family_id(right)
+    """True when both values are present and are the same integer family id."""
+    try:
+        expected = parse_family_id(left)
+        actual = parse_family_id(right)
+    except ValueError:
+        return False
     return expected is not None and expected == actual
 
 
@@ -334,18 +356,8 @@ def normalize_subscriber_email(email):
 
 
 def coerce_family_id(value):
-    """Value to store in the integer article.family_id column.
-
-    Canonical integers are stored as int. Anything else (for example a
-    non-numeric id from ``--family_id``) is stored as text. SQLite keeps
-    that text in the INTEGER column.
-    """
-    text = normalize_family_id(value)
-    if text is None:
-        return None
-    if re.fullmatch(r"-?(0|[1-9]\d*)", text):
-        return int(text)
-    return text
+    """Integer stored in article.family_id. Blank is None. Non-numeric raises."""
+    return parse_family_id(value)
 
 
 def get_total_records(table: str) -> int:

@@ -1,11 +1,14 @@
-"""Article management for the current family's admin.
+"""Article management.
 
-Queries, review, and delete only touch articles whose family_id matches
-the signed-in family admin. That id is users.family_id, copied into the
-session at login.
+A family admin sees and writes only their own family_id. A platform admin
+sees every family, can filter by family_id, and chooses the family_id when
+creating an article. family_id is shown on each row.
 """
+import importlib.util
 import logging
 import os
+import subprocess
+import sys
 
 import pandas as pd
 import streamlit as st
@@ -87,13 +90,65 @@ def _notify(publisher, subject, html, article, review_id, success_text, failure_
         st.error(failure_text)
 
 
+def _query_kwargs(scope):
+    return {"family_id": scope["family_id"], "all_families": scope["all_families"]}
+
+
+def launch_article_editor(family_id):
+    """Start the optional PyQt editor scoped to one integer family id."""
+    if importlib.util.find_spec("PyQt5") is None:
+        st.error("The article editor needs PyQt5. Install it with: pip install 'PyQt5>=5.15.11'")
+        return False
+    try:
+        number = dbm.parse_family_id(family_id)
+    except ValueError:
+        number = None
+    if number is None:
+        st.error("Choose a numeric family_id before opening the editor.")
+        return False
+    script = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ops_artBatch.py")
+    subprocess.Popen(
+        [sys.executable, script, "--db", dbm.db_path, "--table", dbm.db_tables["article"], "--family-id", str(number)],
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=True,
+    )
+    return True
+
+
 def main():
-    """Family-scoped article query, review, and delete."""
+    """Query, create, review, and delete articles for the signed-in role."""
     global UI_TEXTS
-    family_id = cu.current_family_id()
+    own_family_id = cu.current_family_id()
+    is_platform = st.session_state.get("user_state") == dbm.User_State["p_admin"]
     ops_svr = os.getenv("OPS_SVR", "http://localhost:5566")
     st.header(f"{UI_TEXTS['ARTICLE']} {UI_TEXTS['TABLE']} {UI_TEXTS['MANAGEMENT']}")
-    st.markdown(f"### Current family_id: {family_id}")
+    st.markdown(f"### Current family_id: {own_family_id}")
+
+    filter_all = False
+    filter_family = own_family_id
+    if is_platform:
+        st.caption("Platform admin: every family's articles are listed unless you filter.")
+        filter_col, id_col = st.columns([2, 2])
+        with filter_col:
+            filter_all = st.checkbox("All families", value=True)
+        with id_col:
+            filter_family = st.number_input(
+                "Filter family_id",
+                min_value=0,
+                value=int(own_family_id or 0),
+                step=1,
+                disabled=filter_all,
+            )
+    scope = dbm.article_access_scope(
+        st.session_state.get("user_state"),
+        own_family_id,
+        platform_admin=dbm.User_State["p_admin"],
+        filter_all=filter_all,
+        filter_family_id=filter_family,
+    )
+    query = _query_kwargs(scope)
 
     if "article_id" not in st.session_state:
         st.session_state.article_id = 1
@@ -137,22 +192,63 @@ def main():
                     articles = dbm.get_articles(
                         dbm.Article_Categories[cat_key],
                         limit=limit,
-                        family_id=family_id,
+                        **query,
                     )
             with btn12:
                 if st.button(f"{UI_TEXTS['QUERY']} {UI_TEXTS['BY_DAYS']}"):
                     articles = dbm.get_articles_byDays(
                         dbm.Article_Categories[cat_key],
                         byDays=by_days,
-                        family_id=family_id,
+                        **query,
                     )
 
             info1, _info2 = st.columns([15, 1])
             if articles:
                 frame = format_timestamps(pd.DataFrame(articles))
                 with info1:
+                    st.caption("Each row includes family_id.")
                     st.dataframe(frame)
                     st.success(f"{UI_TEXTS['RETRIEVED']} {len(articles)} {UI_TEXTS['ARTICLES']}")
+
+            st.subheader(f"{UI_TEXTS.get('ADD', 'Add')} {UI_TEXTS['ARTICLE']}")
+            with st.form("create_article"):
+                title = st.text_input(UI_TEXTS["TITLE"])
+                content = st.text_area(UI_TEXTS["CONTENT"])
+                author = st.text_input(UI_TEXTS["AUTHOR"])
+                source = st.text_input(UI_TEXTS["SOURCE"])
+                if is_platform:
+                    create_family = st.number_input(
+                        "family_id",
+                        min_value=0,
+                        value=int(filter_family or 0),
+                        step=1,
+                        key="create_article_family_id",
+                    )
+                else:
+                    create_family = own_family_id
+                    st.write(f"family_id: {create_family}")
+                create_clicked = st.form_submit_button(f"{UI_TEXTS.get('ADD', 'Add')} {UI_TEXTS['ARTICLE']}")
+            if create_clicked:
+                created = dbm.add_or_update_article(
+                    {
+                        "title": title,
+                        "content": content,
+                        "category": dbm.Article_Categories[cat_key],
+                        "author": author,
+                        "source": source,
+                        "l10n": (st.session_state.get("app_context") or {}).get("language") or "US",
+                    },
+                    family_id=create_family,
+                )
+                if created:
+                    st.success(f"{UI_TEXTS['ARTICLE']} {UI_TEXTS['ID']}: {created} family_id: {create_family}")
+                else:
+                    st.error(f"{UI_TEXTS['ARTICLE']} {UI_TEXTS['FAILED']}")
+
+            editor_family = create_family if is_platform else own_family_id
+            if st.button(f"{UI_TEXTS.get('OPEN', 'Open')} {UI_TEXTS['ARTICLE']} {UI_TEXTS.get('EDITOR', 'Editor')}"):
+                if launch_article_editor(editor_family):
+                    st.success(f"Article editor launched for family_id {editor_family}")
 
             col1, col2 = st.columns([5, 5])
             with col1:
@@ -174,7 +270,7 @@ def main():
             btn21, btn22 = st.columns([5, 5])
             with btn21:
                 if st.button(f"{UI_TEXTS['QUERY']} {UI_TEXTS['BY_ID']}"):
-                    article = dbm.get_article_byId(int(cursor_id), family_id=family_id)
+                    article = dbm.get_article_byId(int(cursor_id), **query)
                     if article:
                         display_article(article, info1)
                         st.session_state.article_id = article["id"]
@@ -189,7 +285,7 @@ def main():
                         int(cursor_id),
                         dbm.Article_Categories[cat_key],
                         is_censored=dbm.Article_State[article_state],
-                        family_id=family_id,
+                        **query,
                     )
                     if result is not None:
                         article_id, article = result
@@ -205,7 +301,7 @@ def main():
             with st.expander(f"{UI_TEXTS['DANGER_ZONE']}", expanded=False):
                 st.warning(UI_TEXTS["CANNOT_BE_UNDONE"])
                 if st.button(f"{UI_TEXTS['DELETE']} {UI_TEXTS['ARTICLE']} {UI_TEXTS['ID']}: {int(cursor_id)}"):
-                    if dbm.delete_article(int(cursor_id), family_id=family_id):
+                    if dbm.delete_article(int(cursor_id), **query):
                         st.success(f"{UI_TEXTS['DELETE']} {UI_TEXTS['ARTICLE']} {UI_TEXTS['ID']}: {int(cursor_id)}")
                     else:
                         st.error(
@@ -219,7 +315,7 @@ def main():
                 1,
                 dbm.Article_Categories["feedback"],
                 is_censored=dbm.Article_State["pending"],
-                family_id=family_id,
+                **query,
             )
             if result is None:
                 st.info(f"{UI_TEXTS['NO_MORE']} {UI_TEXTS['PENDING']} {UI_TEXTS['FEEDBACKS']}")
@@ -238,7 +334,7 @@ def main():
                             review_id,
                             dbm.Article_State["approved"],
                             category=dbm.Article_Categories[cat_key],
-                            family_id=family_id,
+                            **query,
                         ):
                             subject = f"{UI_TEXTS['TICKET']}: {review_id} {UI_TEXTS['APPROVED']}"
                             html = (
@@ -267,7 +363,7 @@ def main():
                             review_id,
                             dbm.Article_State["rejected"],
                             category=dbm.Article_Categories[cat_key],
-                            family_id=family_id,
+                            **query,
                         ):
                             st.success(
                                 f"{UI_TEXTS['REJECT']} {UI_TEXTS['FEEDBACK']} {UI_TEXTS['ID']}: {review_id}"
@@ -281,7 +377,7 @@ def main():
                 1,
                 dbm.Article_Categories["contact"],
                 is_censored=dbm.Article_State["pending"],
-                family_id=family_id,
+                **query,
             )
             if result is None:
                 st.info(f"{UI_TEXTS['NO_MORE']} {UI_TEXTS['PENDING']} {UI_TEXTS['CONTACTS']}")
@@ -294,7 +390,7 @@ def main():
                     if dbm.review_article(
                         review_id,
                         dbm.Article_State["action_taken"],
-                        family_id=family_id,
+                        **query,
                     ):
                         subject = f"{UI_TEXTS['TICKET']} {review_id} {UI_TEXTS['COMPLETED']}"
                         html = (
@@ -321,7 +417,7 @@ def main():
                     if dbm.review_article(
                         review_id,
                         dbm.Article_State["ignored"],
-                        family_id=family_id,
+                        **query,
                     ):
                         st.success(f"{UI_TEXTS['CONTACT']} {UI_TEXTS['ID']}: {review_id} {UI_TEXTS['IGNORED']}")
                     else:
@@ -335,6 +431,6 @@ cu.init_session_state()
 cu.apply_ui_preferences()
 UI_TEXTS = _ops_texts()
 
-require_role(dbm.User_State["f_admin"])
+require_role(dbm.User_State["p_admin"], dbm.User_State["f_admin"])
 render_sidebar()
 main()

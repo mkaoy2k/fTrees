@@ -15,7 +15,7 @@ from db_connection import (
     db_tables,
     get_db_connection,
     log,
-    normalize_family_id,
+    parse_family_id,
     quote_ident,
 )
 
@@ -24,15 +24,46 @@ def _article_table():
     return quote_ident(db_tables["article"])
 
 
-def _family_clause(family_id):
-    """SQL predicate and params. Blank family id matches no rows."""
-    text = normalize_family_id(family_id)
-    if text is None:
+def _family_clause(family_id, all_families=False):
+    """SQL predicate and params.
+
+    ``all_families`` matches every row (platform admin). A blank or
+    non-numeric family id matches nothing, so a caller cannot leak rows
+    by forgetting the id.
+    """
+    if all_families:
+        return "1 = 1", []
+    try:
+        number = parse_family_id(family_id)
+    except ValueError:
         return "1 = 0", []
-    return "CAST(family_id AS TEXT) = ?", [text]
+    if number is None:
+        return "1 = 0", []
+    return "family_id = ?", [number]
 
 
-def get_articles(category, limit=None, family_id=None):
+def article_access_scope(role, own_family_id, *, platform_admin, filter_all=False, filter_family_id=None):
+    """Query scope for the article page.
+
+    A platform admin sees every family unless they set a family filter.
+    A family admin is always limited to their own family id.
+    """
+    if role == platform_admin:
+        if filter_all:
+            return {"family_id": None, "all_families": True}
+        try:
+            number = parse_family_id(filter_family_id)
+        except ValueError:
+            number = None
+        return {"family_id": number, "all_families": False}
+    try:
+        number = parse_family_id(own_family_id)
+    except ValueError:
+        number = None
+    return {"family_id": number, "all_families": False}
+
+
+def get_articles(category, limit=None, family_id=None, all_families=False):
     """Approved articles in one category for one family, newest id first.
 
     ``category`` may be ``all``. Returns None when the category is unknown
@@ -48,7 +79,7 @@ def get_articles(category, limit=None, family_id=None):
     if limit == 0:
         return []
 
-    family_sql, family_params = _family_clause(family_id)
+    family_sql, family_params = _family_clause(family_id, all_families=all_families)
     query = f"""
         SELECT * FROM {_article_table()}
         WHERE is_censored = ?
@@ -73,7 +104,7 @@ def get_articles(category, limit=None, family_id=None):
         return None
 
 
-def get_articles_byDays(category, byDays=7, family_id=None):
+def get_articles_byDays(category, byDays=7, family_id=None, all_families=False):
     """Approved articles in one category updated within the last ``byDays`` days."""
     if not category or category not in Article_Categories.values():
         log.warning(
@@ -84,7 +115,7 @@ def get_articles_byDays(category, byDays=7, family_id=None):
         return None
     days_ago = datetime.now() - timedelta(days=int(byDays))
     date_str = days_ago.strftime("%Y-%m-%d %H:%M:%S")
-    family_sql, family_params = _family_clause(family_id)
+    family_sql, family_params = _family_clause(family_id, all_families=all_families)
     try:
         with get_db_connection() as conn:
             rows = conn.execute(
@@ -106,9 +137,9 @@ def get_articles_byDays(category, byDays=7, family_id=None):
         return None
 
 
-def get_article_languages(family_id=None):
+def get_article_languages(family_id=None, all_families=False):
     """Distinct article language codes for one family."""
-    family_sql, family_params = _family_clause(family_id)
+    family_sql, family_params = _family_clause(family_id, all_families=all_families)
     try:
         with get_db_connection() as conn:
             rows = conn.execute(
@@ -125,9 +156,9 @@ def get_article_languages(family_id=None):
         return []
 
 
-def get_article_categories(family_id=None):
+def get_article_categories(family_id=None, all_families=False):
     """Distinct article categories stored for one family."""
-    family_sql, family_params = _family_clause(family_id)
+    family_sql, family_params = _family_clause(family_id, all_families=all_families)
     try:
         with get_db_connection() as conn:
             rows = conn.execute(
@@ -144,12 +175,12 @@ def get_article_categories(family_id=None):
         return []
 
 
-def get_article_byId(article_id, family_id=None):
+def get_article_byId(article_id, family_id=None, all_families=False):
     """One article, only when it belongs to ``family_id``."""
     if not isinstance(article_id, int) or article_id <= 0:
         log.warning("Invalid article ID provided: %s", article_id)
         return None
-    family_sql, family_params = _family_clause(family_id)
+    family_sql, family_params = _family_clause(family_id, all_families=all_families)
     try:
         with get_db_connection() as conn:
             row = conn.execute(
@@ -165,18 +196,18 @@ def get_article_byId(article_id, family_id=None):
         return None
 
 
-def get_next_article(article_id, category, is_censored=Article_State["pending"], family_id=None):
+def get_next_article(article_id, category, is_censored=Article_State["pending"], family_id=None, all_families=False):
     """Next article at or after ``article_id`` in this family, category, and state.
 
     Returns ``(id, article)`` or None.
     """
     if not isinstance(article_id, int) or article_id <= 0:
         return None
-    if not isinstance(category, str) or category not in get_article_categories(family_id):
+    if not isinstance(category, str) or category not in get_article_categories(family_id, all_families=all_families):
         return None
     if not isinstance(is_censored, int) or is_censored not in Article_State.values():
         return None
-    family_sql, family_params = _family_clause(family_id)
+    family_sql, family_params = _family_clause(family_id, all_families=all_families)
     try:
         with get_db_connection() as conn:
             row = conn.execute(
@@ -200,15 +231,15 @@ def get_next_article(article_id, category, is_censored=Article_State["pending"],
         return None
 
 
-def review_article(article_id, is_censored, category=None, family_id=None):
+def review_article(article_id, is_censored, category=None, family_id=None, all_families=False):
     """Set the review state of one article in this family. Optionally reclassify it."""
     if not isinstance(article_id, int) or article_id <= 0:
         return False
     if is_censored not in Article_State.values():
         return False
-    if get_article_byId(article_id, family_id) is None:
+    if get_article_byId(article_id, family_id, all_families=all_families) is None:
         return False
-    family_sql, family_params = _family_clause(family_id)
+    family_sql, family_params = _family_clause(family_id, all_families=all_families)
     try:
         with get_db_connection() as conn:
             if category is None:
@@ -245,8 +276,12 @@ def add_or_update_article(article_data, update=False, family_id=None):
         log.error("Missing required article data or title")
         return None
     scoped = family_id if family_id is not None else article_data.get("family_id")
-    stored_family = coerce_family_id(scoped)
-    if normalize_family_id(stored_family) is None:
+    try:
+        stored_family = coerce_family_id(scoped)
+    except ValueError:
+        log.error("Refusing article write with non-numeric family_id %r", scoped)
+        return None
+    if stored_family is None:
         log.error("Refusing article write without a family_id")
         return None
 
@@ -322,11 +357,11 @@ def add_or_update_article(article_data, update=False, family_id=None):
         return None
 
 
-def delete_article(article_id, family_id=None):
+def delete_article(article_id, family_id=None, all_families=False):
     """Delete one article when it belongs to ``family_id``."""
     if not isinstance(article_id, int) or article_id <= 0:
         return False
-    family_sql, family_params = _family_clause(family_id)
+    family_sql, family_params = _family_clause(family_id, all_families=all_families)
     try:
         with get_db_connection() as conn:
             cursor = conn.execute(

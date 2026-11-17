@@ -139,6 +139,7 @@ fTrees/
 ├── L10N_US.json          # US English catalog
 ├── LICENSE               # MIT License
 ├── nav.py                # Shared sidebar and role gate
+├── ops_artBatch.py       # Optional PyQt article editor (one family)
 ├── ops_svr.py            # Public journal server (waitress)
 ├── ops_dbMgmt.py         # Database management operations
 ├── ops_L10N.json         # Operations-server language index
@@ -152,7 +153,7 @@ fTrees/
 │   ├── 2_famMgmt.py      # Family management
 │   ├── 3_csv_editor.py   # CSV editor
 │   ├── 4_json_editor.py  # JSON editor
-│   ├── 5_artMgmt.py      # Article management (family admin)
+│   ├── 5_artMgmt.py      # Article management (family and platform admin)
 │   ├── 6_show_3G.py      # Three-generation graph
 │   ├── 7_show_related.py # Relationship graph
 │   ├── 8_caseMgmt.py     # Case management
@@ -207,7 +208,18 @@ Streamlit serves the login page at `http://localhost:8501`.
 
 ### Article management
 
-There is no `pages/5_*.py` collision in this tree (the numbers jump from 4 to 6), so article management is `pages/5_artMgmt.py`. The sidebar link is shown only to a family admin (`users.is_admin` = family admin). Platform admins and family members do not see it. The page shows the signed-in admin's `family_id` (the value stored on that user's row at login) and lists, reviews, and deletes only that family's articles.
+There is no `pages/5_*.py` collision in this tree (the numbers jump from 4 to 6), so article management is `pages/5_artMgmt.py`. Family admins and platform admins see it. Family members do not.
+
+A family admin (`users.is_admin` = family admin) is limited to the `family_id` stored on that user at login. A platform admin sees every family's articles, with `family_id` on each row, and can filter to one family. Creating an article as a platform admin asks for the `family_id`. A family admin's new article uses their own id.
+
+The optional desktop editor edits one family at a time. PyQt5 is not required for Streamlit or `ops_svr`:
+
+```bash
+pip install "PyQt5>=5.15.11"
+python ops_artBatch.py --family-id 1
+```
+
+`uv sync --extra qt` installs the same optional extra.
 
 ### Operations server
 
@@ -217,7 +229,7 @@ There is no `pages/5_*.py` collision in this tree (the numbers jump from 4 to 6)
 python ops_svr.py --family_id 1
 ```
 
-`--family_id` overrides `FAMILY_ID` in `.env`. If both are blank, the process exits and does not serve. `waitress-serve` does not read the flag, so set `FAMILY_ID` for that process. Content pages load only articles with that `family_id`. Feedback inserts and updates write that same `family_id`. A subscriber is a row in `users` whose `family_id` equals the server's family id. The address match is case-insensitive.
+`--family_id` overrides `FAMILY_ID` in `.env`. The value must be an integer. If both are blank, or the value is not an integer, the process exits with a non-zero status and does not serve. `waitress-serve` does not read the flag, so set `FAMILY_ID` for that process. Content pages load only articles with that integer `family_id`. Feedback inserts and updates write that same id. A subscriber is a row in the shared `users` table whose `family_id` equals the server's family id. The address match is case-insensitive. Password reset uses the existing `password_reset_tokens` table.
 
 ```bash
 python ops_svr.py --dev --family_id 1   # Flask debugger, not for production

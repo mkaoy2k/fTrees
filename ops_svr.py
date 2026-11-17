@@ -1090,19 +1090,28 @@ def _env_truthy(name):
 
 FAMILY_ID_REQUIRED = (
     "FamilyTreesOps requires a family id and will not start without one. "
-    "Pass --family_id <family_id>, or set FAMILY_ID in the environment (.env). "
+    "Pass --family_id <integer>, or set FAMILY_ID to an integer in the environment (.env). "
+    "waitress-serve and gunicorn load ops_svr:app and do not read --family_id; "
+    "set FAMILY_ID for those processes."
+)
+
+FAMILY_ID_NOT_NUMERIC = (
+    "FamilyTreesOps requires a numeric family id and will not start. "
+    "Got {value!r}. Pass --family_id <integer>, or set FAMILY_ID to an integer. "
     "waitress-serve and gunicorn load ops_svr:app and do not read --family_id; "
     "set FAMILY_ID for those processes."
 )
 
 
 def active_family_id():
-    """The family id this process was started with, or None if it is unset."""
+    """Integer family id this process was started with, or None if unset."""
     family_id = app.config.get("FAMILY_ID")
-    if family_id is None:
+    if family_id is None or isinstance(family_id, bool):
         return None
-    text = str(family_id).strip()
-    return text or None
+    try:
+        return dbm.parse_family_id(family_id)
+    except ValueError:
+        return None
 
 
 def cli_family_id(argv=None):
@@ -1132,13 +1141,21 @@ def configure_family_id(cli_value=None):
     process does not serve with open subscription.
     """
     if cli_value is not None and str(cli_value).strip():
-        chosen = str(cli_value).strip()
+        raw = str(cli_value).strip()
     else:
-        chosen = os.getenv("FAMILY_ID", "").strip() or None
-    app.config["FAMILY_ID"] = chosen
-    if not chosen:
+        raw = os.getenv("FAMILY_ID", "").strip()
+    if not raw:
+        app.config["FAMILY_ID"] = None
         log.error(FAMILY_ID_REQUIRED)
         raise SystemExit(FAMILY_ID_REQUIRED)
+    try:
+        chosen = dbm.parse_family_id(raw)
+    except ValueError:
+        app.config["FAMILY_ID"] = None
+        message = FAMILY_ID_NOT_NUMERIC.format(value=raw)
+        log.error(message)
+        raise SystemExit(message)
+    app.config["FAMILY_ID"] = chosen
     log.info(f"Family subscription gate enabled for family_id={chosen}")
     return chosen
 
@@ -1155,9 +1172,10 @@ def build_parser():
         "--family_id",
         default=None,
         help=(
-            "Family this server serves. Required unless FAMILY_ID is set. "
-            "Only user rows whose family_id equals this value may subscribe "
-            "or submit feedback. Overrides FAMILY_ID."
+            "Integer family this server serves. Required unless FAMILY_ID is set. "
+            "A non-numeric value refuses to start. Only user rows whose "
+            "family_id equals this integer may subscribe or submit feedback. "
+            "Overrides FAMILY_ID."
         ),
     )
     return parser

@@ -59,7 +59,7 @@ class RoleGateTests(unittest.TestCase):
         article = next(item["label"] for item in admin if item["page"] == "pages/5_artMgmt.py")
         self.assertEqual(article, "Article Management")
         platform_pages = [item["page"] for item in nav.navigation_links(dbm.User_State["p_admin"], texts)]
-        self.assertNotIn("pages/5_artMgmt.py", platform_pages)
+        self.assertIn("pages/5_artMgmt.py", platform_pages)
         self.assertNotIn("pages/5_artMgmt.py", member_pages)
         family = next(item["label"] for item in admin if item["page"] == "pages/2_famMgmt.py")
         self.assertEqual(family, "Familia Gestion")

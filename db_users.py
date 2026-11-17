@@ -13,6 +13,7 @@ from db_connection import (
     get_db_connection,
     log,
     normalize_subscriber_email,
+    parse_family_id,
     quote_ident,
 )
 
@@ -718,15 +719,17 @@ def delete_user(user_id: int) -> bool:
 def is_family_member(email, family_id) -> bool:
     """True when this address's user row belongs to ``family_id``.
 
-    Membership is ``users.family_id`` equaling the family id, compared as
-    text after stripping. The address match is case-insensitive. A missing
+    Membership is ``users.family_id`` equaling the family id as an integer
+    (``1`` and ``\"01\"`` match). The address match is case-insensitive. A missing
     row, a NULL family id, and a different family id are all non-members.
     Those cases are not distinguished.
     """
-    from db_connection import normalize_family_id
-
     normalized = normalize_subscriber_email(email)
-    if not normalized or normalize_family_id(family_id) is None:
+    try:
+        expected = parse_family_id(family_id)
+    except ValueError:
+        return False
+    if not normalized or expected is None:
         return False
     user = get_subscriber(normalized)
     if not user:

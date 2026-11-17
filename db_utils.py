@@ -28,6 +28,7 @@ from db_connection import (
     db_tables,
     family_ids_equal,
     get_db_connection,
+    parse_family_id,
     get_table_columns,
     get_total_records,
     normalize_family_id,
@@ -57,6 +58,7 @@ from db_users import (
     delete_user,
 )
 from db_articles import (
+    article_access_scope,
     get_articles,
     get_articles_byDays,
     get_article_languages,
@@ -131,8 +133,10 @@ __all__ = [
     "Relation_Type",
     "Subscriber_State",
     "User_State",
+    "article_access_scope",
     "coerce_family_id",
     "column_assignments",
+    "parse_family_id",
     "db_tables",
     "family_ids_equal",
     "get_db_connection",
