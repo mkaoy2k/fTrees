@@ -108,7 +108,7 @@ def launch_article_editor(family_id):
         return False
     script = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ops_artBatch.py")
     subprocess.Popen(
-        [sys.executable, script, "--db", dbm.db_path, "--table", dbm.db_tables["article"], "--family-id", str(number)],
+        [sys.executable, script, "--db", dbm.db_path, "--table", dbm.db_tables["articles"], "--family-id", str(number)],
         stdin=subprocess.DEVNULL,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,

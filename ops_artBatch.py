@@ -250,7 +250,7 @@ def main(argv=None):
     if family_id is None:
         raise SystemExit("ops_artBatch requires a numeric --family-id")
     import db_utils as dbm
-    table_name = args.table or dbm.db_tables["article"]
+    table_name = args.table or dbm.db_tables["articles"]
     if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", table_name):
         raise SystemExit(f"Invalid table name: {table_name!r}")
     db_path = args.db or dbm.db_path

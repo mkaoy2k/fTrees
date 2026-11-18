@@ -21,7 +21,7 @@ from db_connection import (
 
 
 def _article_table():
-    return quote_ident(db_tables["article"])
+    return quote_ident(db_tables["articles"])
 
 
 def _family_clause(family_id, all_families=False):

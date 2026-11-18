@@ -42,7 +42,7 @@ class Config:
     
     # Application configuration
     APP_NAME = os.getenv('APP_NAME', 'FamilyTreesPE')
-    BASE_URL = os.getenv('BASE_URL', 'http://localhost:5566')
+    OPS_URL = os.getenv('OPS_URL', 'http://localhost:5566')
 
 class EmailPublisher:
     """
@@ -284,7 +284,7 @@ def send_verification_email(mail, email, token, is_subscribe=True):
             token=token,
             action=action,
             _external=True,
-            _scheme="https" if "https" in Config.BASE_URL else "http",
+            _scheme="https" if "https" in Config.OPS_URL else "http",
         )
     except Exception as exc:
         log.error("Failed to generate verification URL: %s", exc)

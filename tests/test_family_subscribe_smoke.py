@@ -80,7 +80,7 @@ def _count_users():
 def _count_articles():
     with db_utils.get_db_connection() as conn:
         return conn.execute(
-            f"SELECT COUNT(*) FROM {db_utils.db_tables['article']}"
+            f"SELECT COUNT(*) FROM {db_utils.db_tables['articles']}"
         ).fetchone()[0]
 
 
@@ -93,7 +93,7 @@ class FamilySubscribeSmokeTest(unittest.TestCase):
         ops_svr.app.config["FAMILY_ID"] = FAMILY
         with db_utils.get_db_connection() as conn:
             conn.execute(f"DELETE FROM {db_utils.db_tables['users']}")
-            conn.execute(f"DELETE FROM {db_utils.db_tables['article']}")
+            conn.execute(f"DELETE FROM {db_utils.db_tables['articles']}")
             conn.commit()
 
     def tearDown(self):
@@ -160,7 +160,7 @@ class FamilySubscribeSmokeTest(unittest.TestCase):
         conn = sqlite3.connect(legacy)
         conn.execute(
             """
-            CREATE TABLE article (
+            CREATE TABLE articles (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 title TEXT NOT NULL,
                 content TEXT NOT NULL,
@@ -170,7 +170,7 @@ class FamilySubscribeSmokeTest(unittest.TestCase):
             """
         )
         conn.execute(
-            "INSERT INTO article (title, content, category) VALUES ('Keep me', 'Body', 'News')"
+            "INSERT INTO articles (title, content, category) VALUES ('Keep me', 'Body', 'News')"
         )
         conn.execute(
             """
@@ -191,9 +191,9 @@ class FamilySubscribeSmokeTest(unittest.TestCase):
             db_utils.init_db()
             db_utils.init_db()
             with db_utils.get_db_connection() as conn:
-                columns = [row[1] for row in conn.execute("PRAGMA table_info(article)")]
+                columns = [row[1] for row in conn.execute("PRAGMA table_info(articles)")]
                 article = conn.execute(
-                    "SELECT title, content, family_id FROM article WHERE title = 'Keep me'"
+                    "SELECT title, content, family_id FROM articles WHERE title = 'Keep me'"
                 ).fetchone()
                 user_columns = [row[1] for row in conn.execute("PRAGMA table_info(users)")]
                 user = conn.execute(
@@ -503,7 +503,7 @@ class FamilySubscribeSmokeTest(unittest.TestCase):
         self.assertRegex(accepted_body, r"Ticket:\d+")
         with db_utils.get_db_connection() as conn:
             stored_family = conn.execute(
-                f"SELECT family_id FROM {db_utils.db_tables['article']}"
+                f"SELECT family_id FROM {db_utils.db_tables['articles']}"
             ).fetchone()
         self.assertEqual(stored_family["family_id"], FAMILY)
         self.assertIn("submitted for review", accepted_body)

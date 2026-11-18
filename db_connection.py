@@ -56,7 +56,7 @@ db_tables = {
     "relations": os.getenv("TBL_RELATIONS", "relations"),
     "families": os.getenv("TBL_FAMILIES", "families"),
     "mirrors": os.getenv("TBL_MIRRORS", "mirrors"),
-    "article": os.getenv("TBL_ARTICLE", "article"),
+    "articles": os.getenv("TBL_ARTICLES", "articles"),
 }
 
 Subscriber_State = {

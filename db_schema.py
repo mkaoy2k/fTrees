@@ -282,7 +282,7 @@ def _ensure_article_schema(conn) -> None:
     The column is INTEGER DEFAULT 1. Rows that already exist when the column
     is added are backfilled to 1. No other column and no other table is rewritten.
     """
-    article = db_tables["article"]
+    article = db_tables["articles"]
     quoted = quote_ident(article)
     if not _table_exists(conn, article):
         conn.execute(f"""
