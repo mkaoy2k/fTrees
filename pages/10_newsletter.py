@@ -78,21 +78,22 @@ def _subscriber_panel(family_id, lang, texts):
         st.table(frame_rows)
 
     emails = [row.get("email") for row in rows if row.get("email")]
-    choice = st.selectbox(
-        texts.get("subscriber", "Subscriber"),
-        emails,
-        key="newsletter_unsubscribe_choice",
-    )
-
-    def _unsubscribe(address, family):
-        nl.unsubscribe_family_subscriber(address, family)
-
-    st.button(
-        texts.get("unsubscribe", "Unsubscribe"),
-        key="newsletter_unsubscribe",
-        on_click=_unsubscribe,
-        args=(choice, family_id),
-    )
+    if emails:
+        choice = st.selectbox(
+            texts.get("subscriber", "Subscriber"),
+            emails,
+            key="newsletter_unsubscribe_choice",
+        )
+        if st.button(texts.get("unsubscribe", "Unsubscribe"), key="newsletter_unsubscribe"):
+            try:
+                result = nl.unsubscribe_family_subscriber(choice, family_id)
+                if result:
+                    st.success(f"{texts.get('unsubscribed', 'Unsubscribed')}: {choice}")
+                    st.rerun()
+                else:
+                    st.error(f"{texts.get('failed', 'Failed')}: {choice}")
+            except Exception as e:
+                st.error(f"{texts.get('failed', 'Failed')}: {e}")
 
 
 def _show_delivery(result, texts):
@@ -164,11 +165,6 @@ def main():
         f'<a href="{safe_base}/" target="_blank">FamilyTreesOps</a>',
         unsafe_allow_html=True,
     )
-    st.caption(texts.get(
-        "newsletter_snapshot_help",
-        "Preview is the current operations-server home page for this family and language. "
-        "Mail is sent only after preview, and only to this family's active subscribers.",
-    ))
 
     if "newsletter_manage" not in st.session_state:
         st.session_state.newsletter_manage = False
@@ -180,10 +176,17 @@ def main():
     if st.session_state.newsletter_manage:
         _subscriber_panel(family_id, lang, texts)
 
-    st.subheader(f"{texts.get('newsletter', 'Newsletter')} {texts.get('publication', 'Publication')}")
+    st.subheader(f"{texts.get('newsletter', 'Newsletter')} {texts.get('preview', 'Preview')}")
+    st.caption(texts.get(
+        "newsletter_snapshot_help",
+        "Preview is the current operations-server home page for this family and language. "
+        "Mail is sent only after preview, and only to this family's active subscribers.",
+    ))
     if st.button(texts.get("preview", "Preview"), key="newsletter_preview_button"):
         try:
-            st.session_state.newsletter_preview = nl.build_snapshot(family_id, lang)
+            snapshot = nl.build_snapshot(family_id, lang)
+            st.session_state.newsletter_preview = snapshot
+            st.success(texts.get("preview_built", "Preview built successfully"))
         except SystemExit as exc:
             st.session_state.newsletter_preview = None
             st.error(str(exc) or texts.get("failed", "Failed"))
@@ -205,7 +208,17 @@ def main():
         st.write(", ".join(recipients))
     else:
         st.info(texts.get("newsletter_no_subscribers", "No active subscribers for this family."))
-    st.html(preview["html"])
+
+    # Display HTML safely - use an iframe to avoid rendering issues
+    html_content = preview.get("html", "")
+    if html_content:
+        st.subheader(texts.get("newsletter_preview", "Newsletter Preview"))
+        with st.expander(texts.get("view_html_source", "View HTML Source")):
+            st.text_area("HTML Content", html_content, height=300)
+
+        st.markdown(f"### {texts.get('rendered_preview', 'Rendered Preview')}")
+        st.markdown(f'<iframe srcdoc="{html.escape(html_content)}" style="width:100%; height:600px; border:1px solid #ccc;"></iframe>', unsafe_allow_html=True)
+
     if st.button(texts.get("send", "Send"), type="primary", key="newsletter_send_button"):
         _show_delivery(nl.deliver_newsletter(preview, send=True), texts)
 
