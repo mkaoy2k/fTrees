@@ -236,5 +236,14 @@
     "month_9": "September",
     "month_10": "Oktober",
     "month_11": "November",
-    "month_12": "December"
+    "month_12": "December",
+    "preview": "Forhåndsvisning",
+    "send": "Send",
+    "recipients": "Modtagere",
+    "dry_run": "Prøvekørsel",
+    "newsletter_no_subscribers": "Ingen aktive abonnenter for denne familie.",
+    "newsletter_send_blocked": "Afsendelse er slået fra i dette miljø. Ingen e-mail blev sendt.",
+    "newsletter_snapshot_help": "Forhåndsvisningen er driftsserverens aktuelle forside for denne familie og dette sprog. Mail sendes først efter forhåndsvisning og kun til familiens aktive abonnenter.",
+    "newsletter_not_member": "This email is not a registered member of this family. 此電子郵件不是本家族的已登記成員。",
+    "newsletter_invalid_email": "That email address is not valid. 這個電子郵件地址無效。"
 }

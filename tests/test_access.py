@@ -82,6 +82,7 @@ class RoleGateTests(unittest.TestCase):
             "pages/8_caseMgmt.py",
             "pages/9_birthday.py",
             "pages/5_artMgmt.py",
+            "pages/10_newsletter.py",
         ):
             source = (ROOT / name).read_text(encoding="utf-8")
             self.assertIn("require_role", source, name)

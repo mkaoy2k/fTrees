@@ -236,5 +236,14 @@
     "month_9": "9月",
     "month_10": "10月",
     "month_11": "11月",
-    "month_12": "12月"
+    "month_12": "12月",
+    "preview": "プレビュー",
+    "send": "送信",
+    "recipients": "受信者",
+    "dry_run": "ドライラン",
+    "newsletter_no_subscribers": "この家族に有効な購読者はいません。",
+    "newsletter_send_blocked": "この環境では送信が無効です。メールは送信されませんでした。",
+    "newsletter_snapshot_help": "プレビューは、この家族と言語の現在の運用サーバーのトップページです。送信はプレビューの後だけで、この家族の有効な購読者にだけ届きます。",
+    "newsletter_not_member": "This email is not a registered member of this family. 此電子郵件不是本家族的已登記成員。",
+    "newsletter_invalid_email": "That email address is not valid. 這個電子郵件地址無效。"
 }

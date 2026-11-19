@@ -1,19 +1,6 @@
 {% extends "layout.html" %} {% block content %}
 <h1 class="mb-3">{{ header }}</h1>
-<p id="currentDate" style="text-align: right; font-size: 0.9em; font-style: italic; color: #666; margin-top: -1em; margin-bottom: 1.5em;"></p>
-<script>
-    // 創建日期物件
-    const today = new Date();
-    // 格式化日期（年、月、日）
-    const year = today.getFullYear();
-    const month = today.getMonth() + 1; // getMonth() 返回 0-11，所以要加1
-    const day = today.getDate();
-    
-    // 將日期轉換為繁體中文格式
-    const chineseDate = `${year}-${month}-${day}`;
-    // 將日期顯示在 HTML 中
-    document.getElementById('currentDate').textContent = chineseDate;
-</script>
+<p id="currentDate" style="text-align: right; font-size: 0.9em; font-style: italic; color: #666; margin-top: -1em; margin-bottom: 1.5em;">{{ published_on }}</p>
 
 <!-- News -->
 <h2 style="color: red;">{{ t1 }}</h2>
@@ -22,7 +9,7 @@
     <div class="content-block">
         {{ article['content']|safe }}
         {% if article['image_url'] %}
-        <img src="{{ article['image_url'] }}" alt="{{ article['image_alt'] }}" style="max-width: 100%; height: auto; margin: 10px 0;"><br>
+        <img src="{{ article['image_url'] }}" alt="{{ article.get('image_alt', '') }}" style="max-width: 100%; height: auto; margin: 10px 0;"><br>
         {% endif %}
         {% if article['author'] %}
         {{ author_label }} {{ article['author'] }}<br>
@@ -58,7 +45,7 @@
     <div class="content-block">
         {{ article['content']|safe }}
         {% if article['image_url'] %}
-        <img src="{{ article['image_url'] }}" alt="{{ article['image_alt'] }}" style="max-width: 100%; height: auto; margin: 10px 0;"><br>
+        <img src="{{ article['image_url'] }}" alt="{{ article.get('image_alt', '') }}" style="max-width: 100%; height: auto; margin: 10px 0;"><br>
         {% endif %}
         {% if article['author'] %}
         {{ author_label }} {{ article['author'] }}<br>
