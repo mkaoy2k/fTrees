@@ -270,6 +270,44 @@ def get_subscribers(state: str = 'active', lang: str = None) -> List[Dict[str, A
         log.error(error_msg, exc_info=True)
         raise
 
+
+def list_family_subscribers(family_id, state=None) -> List[Dict[str, Any]]:
+    """User rows whose ``family_id`` equals this family.
+
+    Subscription state lives on the shared ``users`` table, which is the
+    same table ``ops_svr`` updates. ``state`` is ``active``, ``pending``,
+    ``inactive``, or ``in_contact``. Omit it to return every row for the
+    family. A blank or non-numeric family id matches nothing.
+    """
+    try:
+        number = parse_family_id(family_id)
+    except ValueError:
+        return []
+    if number is None:
+        return []
+    if state is not None and state not in Subscriber_State:
+        raise ValueError(
+            f"Invalid state {state!r}. Must be one of: {', '.join(Subscriber_State)}"
+        )
+    query = f"""
+        SELECT id, email, is_active, l10n, family_id, created_at, updated_at
+        FROM {db_tables['users']}
+        WHERE family_id = ?
+    """
+    params = [number]
+    if state is not None and state != "all":
+        query += " AND is_active = ?"
+        params.append(Subscriber_State[state])
+    query += " ORDER BY email COLLATE NOCASE ASC"
+    try:
+        with get_db_connection() as conn:
+            rows = conn.execute(query, tuple(params)).fetchall()
+        return [dict(row) for row in rows]
+    except sqlite3.Error as exc:
+        log.error("Database error in list_family_subscribers: %s", exc)
+        raise
+
+
 def get_subscriber(email: str) -> Optional[Dict[str, Any]]:
     """
     Retrieve a single user record by email address.

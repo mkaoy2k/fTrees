@@ -236,5 +236,14 @@
     "month_9": "Septembre",
     "month_10": "Octobre",
     "month_11": "Novembre",
-    "month_12": "Décembre"
+    "month_12": "Décembre",
+    "preview": "Aperçu",
+    "send": "Envoyer",
+    "recipients": "Destinataires",
+    "dry_run": "Essai à blanc",
+    "newsletter_no_subscribers": "Aucun abonné actif pour cette famille.",
+    "newsletter_send_blocked": "L'envoi est désactivé dans cet environnement. Aucun e-mail n'a été envoyé.",
+    "newsletter_snapshot_help": "L'aperçu est la page d'accueil actuelle du serveur pour cette famille et cette langue. L'envoi n'a lieu qu'après l'aperçu, et seulement aux abonnés actifs de cette famille.",
+    "newsletter_not_member": "This email is not a registered member of this family. 此電子郵件不是本家族的已登記成員。",
+    "newsletter_invalid_email": "That email address is not valid. 這個電子郵件地址無效。"
 }

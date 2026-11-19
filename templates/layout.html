@@ -183,7 +183,7 @@
                   {% for lang in options %}
                   <option value="{{ url_for('set_l10n', lang=lang, page=title) }}" 
                           {% if lang == current_lang %}selected{% endif %}>
-                      {{ settings[lang] if settings[lang] else lang }}
+                      {% if settings is mapping and settings[lang] %}{{ settings[lang] }}{% else %}{{ lang }}{% endif %}
                   </option>
                   {% endfor %}
                 </select> 
@@ -220,7 +220,7 @@
     <footer class="mt-auto">
         <div class="container text-center">
             <div style="font-size: 0.85em; margin-top: 1rem;">
-                &copy; <span id="current-year"></span> {{ t4_team }}. All Rights Reserved.<br>
+                &copy; <span id="current-year">{{ published_on[:4] if published_on else "" }}</span> {{ t4_team }}. All Rights Reserved.<br>
                 The content, organization, graphics, design, and other matters related to this site are protected under applicable copyrights,
                 trademarks, and other proprietary (including but not limited to intellectual property) rights.
                 Unauthorized use, reproduction, or distribution of any content from this site is strictly prohibited.

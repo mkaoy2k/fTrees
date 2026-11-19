@@ -325,7 +325,11 @@ def send_email(mail, emails, subject, html):
 
 
 def send_newsletter(mail, emails, blob):
-    """Render the newsletter template and send it."""
+    """Render the legacy newsletter template and send it.
+
+    The newsletter page and ``/pub`` send the rendered operations-server
+    home page instead. This helper remains for the older template.
+    """
     try:
         html = render_template(
             "email/newsletter.html",

@@ -235,5 +235,14 @@
     "month_9": "Rugsėjis",
     "month_10": "Spalis",
     "month_11": "Lapkritis",
-    "month_12": "Gruodis"
+    "month_12": "Gruodis",
+    "preview": "Peržiūra",
+    "send": "Siųsti",
+    "recipients": "Gavėjai",
+    "dry_run": "Bandomasis paleidimas",
+    "newsletter_no_subscribers": "Ši šeima neturi aktyvių prenumeratorių.",
+    "newsletter_send_blocked": "Siuntimas šioje aplinkoje išjungtas. Laiškas neišsiųstas.",
+    "newsletter_snapshot_help": "Peržiūra yra šios šeimos ir kalbos dabartinis operacijų serverio pagrindinis puslapis. Laiškas siunčiamas tik po peržiūros ir tik šios šeimos aktyviems prenumeratoriams.",
+    "newsletter_not_member": "This email is not a registered member of this family. 此電子郵件不是本家族的已登記成員。",
+    "newsletter_invalid_email": "That email address is not valid. 這個電子郵件地址無效。"
 }

@@ -49,7 +49,7 @@ swapped as a whole. `OPS_SVR_THREADS` may be raised above 1 without mixing
 languages across overlapping requests. The default remains 1.
 """
 
-from flask import Flask, request, redirect, render_template, flash, url_for, session, jsonify, g
+from flask import Flask, has_request_context, request, redirect, render_template, flash, url_for, session, jsonify, g
 from flask_wtf.csrf import CSRFProtect, generate_csrf, CSRFError
 from flask_mail import Mail
 import argparse
@@ -147,9 +147,14 @@ g_fmail = Mail(app)
 log.info(f"Email server configured: {app.config['MAIL_SERVER']}:{app.config['MAIL_PORT']}")
 log.info(f"Using TLS: {app.config['MAIL_USE_TLS']}, Using SSL: {app.config['MAIL_USE_SSL']}")
 
-def _load_page_content(page_cat, options, article_window):
-    """Build per-language page content for this server's family only."""
-    family_id = active_family_id()
+def _load_page_content(page_cat, options, article_window, family_id=None):
+    """Build per-language page content for one family.
+
+    The default family is the one this process was started with. A publish
+    for another family passes that id and does not retarget the process.
+    """
+    if family_id is None:
+        family_id = active_family_id()
     pages = {}
     for idx, loc in enumerate(options):
         l_page = {}
@@ -312,7 +317,7 @@ def get_template_context():
         'email_subscription': g.loc['EMAIL_SUBSCRIPTION'],
         'motto_btn': g.loc['HOME_HTML_H2'],
         'motto': g.loc['HOME_HTML_MOTTO'],
-        'ops_svr': os.getenv("OPS_SVR", "http://localhost:5566"),
+        'ops_svr': os.getenv("OPS_SVR", "http://127.0.0.1:5566"),
         'current_lang': g.loc_key
     }
 
@@ -349,53 +354,60 @@ def persist_language_cookie(response):
         path='/',
     )
     return response
- 
-@app.route("/")
-def home():
-    """Home page"""
-    context = get_template_context()
-    t1 = g.loc['HOME_HTML_T1']
-    t2 = g.loc['HOME_HTML_T2']
-    t3 = g.loc['HOME_HTML_T3']
-    
-    # Check if Story has content, if not use default values
+
+
+def _published_on():
+    """Calendar date in the configured timezone, shared by the page and the email."""
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    zone_name = os.getenv("TIMEZONE", "America/Los_Angeles") or "America/Los_Angeles"
+    try:
+        zone = ZoneInfo(zone_name)
+    except Exception:
+        zone = ZoneInfo("America/Los_Angeles")
+    return datetime.now(zone).strftime("%Y-%m-%d")
+
+
+def home_article_context(loc, home_page, ft_url):
+    """Article blocks rendered on the public home page."""
+    t1 = loc['HOME_HTML_T1']
+    t2 = loc['HOME_HTML_T2']
+    t3 = loc['HOME_HTML_T3']
     story_data = {
-        't2_title': g.loc['HOME_HTML_NO_STORY_TITLE'],
-        't2_content': g.loc['HOME_HTML_NO_STORY_CONTENT'],
+        't2_title': loc['HOME_HTML_NO_STORY_TITLE'],
+        't2_content': loc['HOME_HTML_NO_STORY_CONTENT'],
         't2_image': '',
         't2_image_alt': '',
         't2_author': '',
         't2_src_url': '',
         't2_source': ''
     }
-    
     try:
-        if g.home["Story"] and len(g.home["Story"]) > 0:
+        if home_page["Story"] and len(home_page["Story"]) > 0:
+            story = home_page["Story"][0]
             story_data = {
-                't2_title': g.home["Story"][0].get('title', g.loc['HOME_HTML_NO_STORY_TITLE']),
-                't2_content': g.home["Story"][0].get('content', g.loc['HOME_HTML_NO_STORY_CONTENT']),
-                't2_image': g.home["Story"][0].get('image_url', ''),
-                't2_image_alt': g.home["Story"][0].get('image_alt', ''),
-                't2_author': g.home["Story"][0].get('author', ''),
-                't2_src_url': g.home["Story"][0].get('src_url', ''),
-                't2_source': g.home["Story"][0].get('source', '')
+                't2_title': story.get('title', loc['HOME_HTML_NO_STORY_TITLE']),
+                't2_content': story.get('content', loc['HOME_HTML_NO_STORY_CONTENT']),
+                't2_image': story.get('image_url', ''),
+                't2_image_alt': story.get('image_alt', ''),
+                't2_author': story.get('author', ''),
+                't2_src_url': story.get('src_url', ''),
+                't2_source': story.get('source', '')
             }
-    
     except Exception as e:
         log.warning(f"Skip processing story: {str(e)}")
-    
-    context.update({
+    return {
         'release': os.getenv("RELEASE", ""),
-        'header': g.loc['HOME_HTML_H1'],
+        'header': loc['HOME_HTML_H1'],
         't1': t1,
-        't1_articles': g.home.get("News") or [
+        't1_articles': home_page.get("News") or [
             {
-                'title': g.loc.get('HOME_HTML_NO_NEWS_TITLE', 'No News Available'),
-                'content': g.loc.get('HOME_HTML_NO_NEWS_CONTENT', 'Check back later for updates.')
+                'title': loc.get('HOME_HTML_NO_NEWS_TITLE', 'No News Available'),
+                'content': loc.get('HOME_HTML_NO_NEWS_CONTENT', 'Check back later for updates.')
             }
         ],
-        'author_label': g.loc['HTML_AUTHOR_LABEL'],
-        'source_label': g.loc['HTML_SOURCE_LABEL'],
+        'author_label': loc['HTML_AUTHOR_LABEL'],
+        'source_label': loc['HTML_SOURCE_LABEL'],
         't2': t2,
         't2_title': story_data['t2_title'],
         't2_content': story_data['t2_content'],
@@ -405,17 +417,115 @@ def home():
         't2_src_url': story_data['t2_src_url'],
         't2_source': story_data['t2_source'],
         't3': t3,
-        't3_article': g.home.get("Events") or [
+        't3_article': home_page.get("Events") or [
             {
-                'title': g.loc.get('HOME_HTML_NO_EVENT_TITLE', 'No Events Available'),
-                'content': g.loc.get('HOME_HTML_NO_EVENT_CONTENT', 'Check back later for updates.')
+                'title': loc.get('HOME_HTML_NO_EVENT_TITLE', 'No Events Available'),
+                'content': loc.get('HOME_HTML_NO_EVENT_CONTENT', 'Check back later for updates.')
             }
         ],
-        't4_greeting': g.loc['HOME_HTML_T4_GREETING'],
-        't4_team': g.loc['HOME_HTML_T4_TEAM'],
+        't4_greeting': loc['HOME_HTML_T4_GREETING'],
+        't4_team': loc['HOME_HTML_T4_TEAM'],
+        'ft_url': ft_url,
+        'title': 'home',
+        'published_on': _published_on(),
+    }
+
+
+def home_sections_for(family_id, lang):
+    """Fresh home-page articles for one family and language."""
+    default_key, l10n, options, _menu_all, _pages = catalog_snapshot()
+    chosen = lang if lang in l10n else default_key
+    window = int(os.getenv("ARTICLE_WINDOW", "7"))
+    pages = _load_page_content(g_PAGE_CAT, options, window, family_id=family_id)
+    return chosen, l10n[chosen], pages[options.index(chosen)]['home']
+
+
+def _render_home_html(family_id, lang, base_url):
+    """Render ``home.html`` the way ``home`` does, for an explicit family."""
+    default_key, l10n, options, menu_all, _pages = catalog_snapshot()
+    chosen, loc, home_page = home_sections_for(family_id, lang)
+    menu = menu_all.get(chosen) or menu_all.get(default_key) or next(iter(menu_all.values()))
+    context = {
+        'menu': menu,
+        'options': options,
+        'release': os.getenv("RELEASE", ""),
+        'settings': loc['SETTINGS'],
+        'admin': loc['HOME_HTML_T4_TEAM'],
+        'admin_email': os.getenv("DB_ADMIN", ""),
+        'office_days': os.getenv("OFFICE_DAYS", "Monday - Friday"),
+        'office_hours': os.getenv("OFFICE_HOURS", "9:00 AM - 5:00 PM (PST)"),
+        'mailing_address': os.getenv("MAILING_ADDRESS", ""),
+        'mailing_city': os.getenv("MAILING_CITY", ""),
+        'mailing_country': os.getenv("MAILING_COUNTRY", ""),
+        'your_language': loc['YOUR_LANGUAGE'],
+        'subscribe': loc['SUBSCRIBE'],
+        'unsubscribe': loc['UNSUBSCRIBE'],
+        'email_subscription': loc['EMAIL_SUBSCRIPTION'],
+        'motto_btn': loc['HOME_HTML_H2'],
+        'motto': loc['HOME_HTML_MOTTO'],
+        'ops_svr': base_url,
+        'current_lang': chosen,
         'ft_url': ft_svr,
-        'title': 'home'
-    })
+    }
+    context.update(home_article_context(loc, home_page, ft_svr))
+    return render_template('home.html', **context)
+
+
+def public_base_url():
+    """Base URL written into newsletter links."""
+    from newsletter_publish import default_base_url
+    return default_base_url()
+
+
+def render_main_snapshot(family_id, lang, base_url=None):
+    """Home-page HTML for ``family_id`` and ``lang``, safe to put in an email.
+
+    Relative image, stylesheet, and footer URLs are rewritten to ``base_url``.
+    Local CSS is inlined. This does not send mail and does not change the
+    family the public site is serving.
+    """
+    from newsletter_publish import prepare_email_html
+    number = dbm.parse_family_id(family_id)
+    if number is None:
+        raise ValueError("family_id is required")
+    base = (base_url or public_base_url()).rstrip("/")
+
+    def _go():
+        return _render_home_html(number, lang, base)
+
+    if has_request_context():
+        html = _go()
+    else:
+        with app.test_request_context(base_url=base + "/"):
+            html = _go()
+    return prepare_email_html(html, base)
+
+
+def _request_flag(name):
+    return str(request.args.get(name) or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _publish_family_id(admin):
+    """Family a verified admin may publish, from the query or their own row."""
+    role = admin.get("is_admin")
+    raw = request.args.get("family_id")
+    if role == dbm.User_State["f_admin"]:
+        chosen = admin.get("family_id")
+    elif role == dbm.User_State["p_admin"] and raw is not None and str(raw).strip():
+        chosen = raw
+    else:
+        chosen = active_family_id()
+    try:
+        return dbm.parse_family_id(chosen)
+    except ValueError:
+        return None
+
+
+@app.route("/")
+def home():
+    """Home page"""
+    context = get_template_context()
+    context.update(home_article_context(g.loc, g.home, ft_svr))
     return render_template('home.html', **context)
 
 @app.route("/faq")
@@ -896,12 +1006,19 @@ def verify_email():
 
 @app.route('/pub')
 def pub_newsletter():
+    """Send the current home page to one family's active subscribers in this language.
+
+    ``dry_run`` or ``preview`` returns that HTML and does not send mail.
+    A family admin is locked to their own ``family_id``. A platform admin
+    may pass ``family_id``. The letter is the rendered home page for that
+    family and language, not a separate email template.
     """
-    retrieve active subscribers' emails from db and send newsletter
-    """
+    from newsletter_publish import active_recipient_emails, deliver_newsletter, newsletter_subject
+
     lang = request.args.get('lang', g.loc_key)
     email = request.args.get('email')
     password = request.args.get('password')
+    dry_run = _request_flag("dry_run") or _request_flag("preview")
 
     if lang not in g_L10N_options:
         log.debug(f"Language not found: {lang}")
@@ -913,112 +1030,65 @@ def pub_newsletter():
         log.debug("Login failed")
         flash(f'{g.loc.get("LOGIN", "login")} {g.loc.get("FAILED", "failed")}', 'warning')
         return redirect(url_for('home'))
+    admin = dbm.get_subscriber(email)
+    if not admin:
+        flash(f'{g.loc.get("LOGIN", "login")} {g.loc.get("FAILED", "failed")}', 'warning')
+        return redirect(url_for('home'))
 
-    # Refresh shared catalogs, then bind this request (and this session)
-    # to the newsletter language. Other requests keep their own flask.g.
+    family_id = _publish_family_id(admin)
+    if family_id is None:
+        flash(f'{g.loc.get("PUB_HTML_FAILS", "Language not found")}', 'warning')
+        return redirect(url_for('home'))
+
+    # Refresh shared catalogs. The snapshot then reads this family's articles
+    # itself, so a platform admin can publish a family other than the one
+    # this process was started with.
     init_globals()
     if lang not in g_L10N_options:
         log.debug(f"Language not found after refresh: {lang}")
         flash(f'{g.loc.get("PUB_HTML_FAILS", "Language not found")}', 'warning')
         return redirect(url_for('home'))
-    bind_request_locale(lang)
-    remember_request_lang(g.loc_key)
-    family_id = active_family_id()
-    users = [
-        user for user in (dbm.get_subscribers(state='active', lang=lang) or [])
-        if dbm.is_family_member(user.get('email'), family_id)
-    ]
-    if not users:  # Handles both None and empty list
-        log.debug(f"No active subscribers found for language: {lang}")
-        flash(f'{g.loc.get("NO_ACTIVE_SUBSCRIBERS", "No active subscribers found")}', 'warning')
-        return redirect(url_for('home'))
-        
-    emails = [user['email'] for user in users if user and 'email' in user]
-    if not emails:  
-        # In case all users in the list are invalid or missing email
-        log.debug(f"No valid emails found for language: {lang}")
-        flash(f'{g.loc.get("NO_EMAILS_FOUND", "No valid emails found")}', 'danger')
+
+    try:
+        html = render_main_snapshot(family_id, lang)
+    except Exception as exc:
+        log.error(f"Unexpected error while rendering newsletter for language {lang}: {exc}", exc_info=True)
+        flash(g.loc.get("PUB_HTML_FAIL", "An unexpected error occurred. Please contact support."), 'danger')
         return redirect(url_for('home'))
 
-    context = get_template_context()
-    t1 = g.loc['HOME_HTML_T1']
-    t2 = g.loc['HOME_HTML_T2']
-    t3 = g.loc['HOME_HTML_T3']
-    
-    # Prepare story data with safe defaults
-    story_data = {
-        't2_title': g.loc.get('HOME_HTML_NO_STORY_TITLE', 'Featured Story'),
-        't2_content': g.loc.get('HOME_HTML_NO_STORY_CONTENT', 'No story content available'),
-        't2_image': '',
-        't2_image_alt': '',
-        't2_author': '',
-        't2_source': '',
-        't2_src_url': ''
+    if dry_run:
+        return html, 200, {"Content-Type": "text/html; charset=utf-8"}
+
+    recipients = active_recipient_emails(family_id, lang)
+    if not recipients:
+        log.debug(f"No active subscribers found for family_id={family_id}")
+        flash(f'{g.loc.get("NO_ACTIVE_SUBSCRIBERS", "No active subscribers found")}', 'warning')
+        return redirect(url_for('home'))
+
+    snapshot = {
+        "html": html,
+        "subject": newsletter_subject(family_id, lang),
+        "recipients": recipients,
+        "family_id": family_id,
+        "lang": lang,
     }
-    
-    # Update story data if available
-    if 'Story' in g.home and isinstance(g.home['Story'], list) and len(g.home['Story']) > 0:
-        story = g.home['Story'][0]
-        story_data.update({
-            't2_title': story.get('title', story_data['t2_title']),
-            't2_content': story.get('content', story_data['t2_content']),
-            't2_image': story.get('image_url', ''),
-            't2_image_alt': story.get('image_alt', ''),
-            't2_author': story.get('author', ''),
-            't2_source': story.get('source', ''),
-            't2_src_url': story.get('src_url', '')
-        })
-    
-    # Prepare context with safe dictionary access
-    context.update({
-        'header': g.loc.get('HOME_HTML_H1', 'Newsletter'),
-        'author_label': g.loc.get('HTML_AUTHOR_LABEL', 'Author'),
-        'source_label': g.loc.get('HTML_SOURCE_LABEL', 'Source'),
-        't1': t1,
-        't1_articles': g.home.get('News', []),  # Default to empty list if 'News' key doesn't exist
-        't2': t2,
-        't2_title': story_data['t2_title'],
-        't2_content': story_data['t2_content'],
-        't2_image': story_data['t2_image'],
-        't2_image_alt': story_data['t2_image_alt'],
-        't2_author': story_data['t2_author'],
-        't2_source': story_data['t2_source'],
-        't2_src_url': story_data['t2_src_url'],
-        't3': t3,
-        't3_articles': g.home.get('Events', []),  # Default to empty list if 'Events' key doesn't exist
-        't4_greeting': g.loc.get('HOME_HTML_T4_GREETING', 'Thank you for subscribing!'),
-        't4_team': g.loc.get('HOME_HTML_T4_TEAM', 'The Team'),
-        'ft_url': ft_svr,
-        'ops_svr': os.getenv("OPS_SVR", "http://localhost:5566"),
-        'title': g.loc.get('HOME_HTML_H1', 'Newsletter')
-    })
-    
     try:
-        log.info(f"Attempting to send newsletter to {len(emails)} recipients in language: {lang}")
-        log.debug(f"Context keys: {list(context.keys())}")
-        
-        # Log important context data for debugging
-        if 't1_articles' in context:
-            log.debug(f"Found {len(context['t1_articles'])} news articles")
-        if 't3_articles' in context:
-            log.debug(f"Found {len(context['t3_articles'])} event articles")
-            
-        # Send the newsletter
-        if eu.send_newsletter(g_fmail, emails, context):
-            success_msg = f"Newsletter sent successfully to {len(emails)} recipients in language: {lang}"
-            log.info(success_msg)
+        log.info(f"Attempting to send newsletter to {len(recipients)} recipients in language: {lang} family_id={family_id}")
+        result = deliver_newsletter(snapshot, send=True)
+        if result.get("sent"):
+            log.info(f"Newsletter sent successfully to {len(recipients)} recipients in language: {lang}")
             flash(g.loc.get("PUB_HTML_SUCCESS", "Newsletter sent successfully."), 'success')
-        else:
-            error_msg = f"Failed to send newsletter for language: {lang}. Check logs for details."
-            log.error(error_msg)
+        elif result.get("reason") == "blocked":
+            log.warning("Newsletter send blocked because this environment does not send mail")
             flash(g.loc.get("PUB_HTML_FAIL", "Failed to send newsletter. Please try again later."), 'danger')
-            
-    except Exception as e:
-        error_msg = f"Unexpected error while sending newsletter for language {lang}: {str(e)}"
-        log.error(error_msg, exc_info=True)
+        else:
+            log.error(f"Failed to send newsletter for language: {lang}. Check logs for details.")
+            flash(g.loc.get("PUB_HTML_FAIL", "Failed to send newsletter. Please try again later."), 'danger')
+    except Exception as exc:
+        log.error(f"Unexpected error while sending newsletter for language {lang}: {exc}", exc_info=True)
         flash(g.loc.get("PUB_HTML_FAIL", "An unexpected error occurred. Please contact support."), 'danger')
-        
-    return redirect(url_for('home'))    
+
+    return redirect(url_for('home'))
 
 @app.route('/reset-password', methods=['GET', 'POST'])
 def reset_password():

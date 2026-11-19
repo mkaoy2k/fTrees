@@ -235,5 +235,14 @@
     "month_9": "September",
     "month_10": "October",
     "month_11": "November",
-    "month_12": "December"
+    "month_12": "December",
+    "preview": "Preview",
+    "send": "Send",
+    "recipients": "Recipients",
+    "dry_run": "Dry run",
+    "newsletter_no_subscribers": "No active subscribers for this family.",
+    "newsletter_send_blocked": "Sending is turned off in this environment. No email was sent.",
+    "newsletter_snapshot_help": "Preview is the current operations-server home page for this family and language. Mail is sent only after preview, and only to this family's active subscribers.",
+    "newsletter_not_member": "This email is not a registered member of this family. 此電子郵件不是本家族的已登記成員。",
+    "newsletter_invalid_email": "That email address is not valid. 這個電子郵件地址無效。"
 }

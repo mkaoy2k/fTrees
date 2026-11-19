@@ -1,92 +1,219 @@
-"""
-Newsletter Publication Page
+"""Newsletter for platform admins and family admins.
 
-This page provides functionality for publishing newsletters in
-various languages.
+Family members do not get this page. A platform admin chooses any
+family_id. A family admin stays on the family_id from login. Publication
+previews the operations-server home page for that family and language,
+then sends that snapshot only to the family's active subscribers.
 """
+import html
+
 import streamlit as st
-from fTrees import show_padmin_sidebar
+
 import context_utils as cu
+import db_utils as dbm
 import funcUtils as fu
-import db_articles as dbm
-from db_connection import User_State
+import newsletter_publish as nl
+from nav import render_sidebar, require_role
 
-# Initialize session state
-cu.init_session_state()
-language = st.session_state.app_context.get('language') or "US"
-UI_TEXTS = st.session_state.ui_context.get(language, st.session_state.ui_context.get("US", {}))
 
-# Initialize newsletter_password if not present (for ops_svr authentication)
-if 'newsletter_password' not in st.session_state:
-    st.session_state.newsletter_password = ''
+def _language_choices(family_id):
+    """Catalog languages that this family actually publishes, else every catalog."""
+    try:
+        catalogs = list(fu.load_ops_L10N() or {})
+    except Exception:
+        catalogs = []
+    stored = set(dbm.get_article_languages(family_id=family_id) or [])
+    choices = [lang for lang in catalogs if lang in stored]
+    if choices:
+        return choices
+    return catalogs or ["US"]
 
-# Check authentication
-if not st.session_state.get('authenticated', False):
-    st.switch_page("fTrees.py")
-    
-# Show admin sidebar
-show_padmin_sidebar()
 
-# Main content
-st.header(f"{UI_TEXTS['newsletter']} {UI_TEXTS['publication']}")
+def _status_label(value, texts):
+    labels = {
+        dbm.Subscriber_State["active"]: texts.get("active", "Active"),
+        dbm.Subscriber_State["pending"]: texts.get("pending", "Pending"),
+        dbm.Subscriber_State["inactive"]: texts.get("inactive", "Inactive"),
+    }
+    return labels.get(value, texts.get("unknown", "Unknown"))
 
-st.subheader(f"{UI_TEXTS['newsletter']}")
 
-context = st.session_state.get('app_context', cu.init_context())
-own_family_id = cu.current_family_id()
-is_platform = st.session_state.get("user_state") == User_State["p_admin"]
-# Platform admin sees all families' languages, family admin sees only their own
-lang_list = dbm.get_article_languages(family_id=own_family_id, all_families=is_platform)
-current_lang = context.get('language')
-# Default to index 0 if current language is not in the list
-try:
-    index = lang_list.index(current_lang) if current_lang in lang_list else 0
-except ValueError:
-    index = 0
-l10n = st.selectbox(f"{UI_TEXTS['select']} {UI_TEXTS['language']}",
-                   lang_list,
-                   index=index)
-cu.update_context({'language': l10n})
+def _subscriber_panel(family_id, lang, texts):
+    """Table of this family's users, plus add and unsubscribe."""
+    with st.form("newsletter_add_subscriber"):
+        email = st.text_input(texts.get("email", "Email"))
+        submitted = st.form_submit_button(
+            f"{texts.get('add', 'Add')} {texts.get('subscriber', 'Subscriber')}"
+        )
+    if submitted:
+        outcome = nl.add_family_subscriber(email, family_id, lang)
+        if outcome["ok"]:
+            st.success(
+                f"{texts.get('subscriber', 'Subscriber')} {texts.get('added', 'Added')}: {outcome['email']}"
+            )
+        elif outcome["reason"] == "not_member":
+            st.error(texts.get("newsletter_not_member", nl.NOT_MEMBER_MESSAGE))
+        elif outcome["reason"] == "invalid_email":
+            st.error(texts.get("newsletter_invalid_email", nl.INVALID_EMAIL_MESSAGE))
+        else:
+            st.error(texts.get("failed", "Failed"))
 
-# Password input for ops_svr authentication
-password = st.text_input(f"{UI_TEXTS['password']}", type="password", key="newsletter_password")
+    rows = dbm.list_family_subscribers(family_id)
+    if not rows:
+        st.info(texts.get("newsletter_no_subscribers", "No active subscribers for this family."))
+        return
+    frame_rows = [
+        {
+            texts.get("email", "Email"): row.get("email") or "",
+            texts.get("subscription", "Subscription"): _status_label(row.get("is_active"), texts),
+            texts.get("language", "Language"): row.get("l10n") or "",
+            "family_id": row.get("family_id"),
+        }
+        for row in rows
+    ]
+    try:
+        import pandas as pd
+        st.dataframe(pd.DataFrame(frame_rows), hide_index=True, width="stretch")
+    except Exception:
+        st.table(frame_rows)
 
-if st.button(f"{UI_TEXTS['publish']} {UI_TEXTS['language']}:{l10n}", type="primary"):
-    with st.spinner(f"{UI_TEXTS['publish']} {UI_TEXTS['in_progress']} ..."):
+    emails = [row.get("email") for row in rows if row.get("email")]
+    choice = st.selectbox(
+        texts.get("subscriber", "Subscriber"),
+        emails,
+        key="newsletter_unsubscribe_choice",
+    )
+
+    def _unsubscribe(address, family):
+        nl.unsubscribe_family_subscriber(address, family)
+
+    st.button(
+        texts.get("unsubscribe", "Unsubscribe"),
+        key="newsletter_unsubscribe",
+        on_click=_unsubscribe,
+        args=(choice, family_id),
+    )
+
+
+def _show_delivery(result, texts):
+    count = len(result.get("recipients") or [])
+    reason = result.get("reason")
+    if reason == "blocked":
+        st.warning(texts.get(
+            "newsletter_send_blocked",
+            "Sending is turned off in this environment. No email was sent.",
+        ))
+    elif reason == "no_recipients":
+        st.info(texts.get("newsletter_no_subscribers", "No active subscribers for this family."))
+    elif result.get("sent"):
+        st.success(f"{texts.get('published', 'Published')} ({count})")
+    else:
+        st.error(texts.get("failed", "Failed"))
+
+
+def main():
+    """Choose a family and language, manage subscribers, preview, then send."""
+    texts = UI_TEXTS
+    role = st.session_state.get("user_state")
+    own_family_id = cu.current_family_id()
+    is_platform = role == dbm.User_State["p_admin"]
+
+    st.header(f"{texts.get('newsletter', 'Newsletter')} {texts.get('publication', 'Publication')}")
+
+    if is_platform:
+        requested = st.number_input(
+            "family_id",
+            min_value=0,
+            value=int(own_family_id or 0),
+            step=1,
+            key="newsletter_family_id",
+        )
+    else:
+        requested = own_family_id
+        st.text_input(
+            "family_id",
+            value="" if own_family_id is None else str(own_family_id),
+            disabled=True,
+            key="newsletter_family_id_locked",
+        )
+    try:
+        family_id = nl.selected_family_id(role, own_family_id, requested)
+    except PermissionError:
+        st.error(texts.get("permission_error", "Need permission to access this page."))
+        st.stop()
+    except ValueError:
+        st.error(texts.get("failed", "Failed"))
+        st.stop()
+    if family_id is None:
+        st.error(texts.get("newsletter_no_subscribers", "No active subscribers for this family."))
+        st.stop()
+
+    choices = _language_choices(family_id)
+    current = (st.session_state.get("app_context") or {}).get("language")
+    index = choices.index(current) if current in choices else 0
+    lang = st.selectbox(
+        f"{texts.get('select', 'Select')} {texts.get('language', 'Language')}",
+        choices,
+        index=index,
+        key="newsletter_language",
+    )
+
+    base = nl.default_base_url()
+    safe_base = html.escape(base, quote=True)
+    st.markdown(
+        f'<a href="{safe_base}/" target="_blank">FamilyTreesOps</a>',
+        unsafe_allow_html=True,
+    )
+    st.caption(texts.get(
+        "newsletter_snapshot_help",
+        "Preview is the current operations-server home page for this family and language. "
+        "Mail is sent only after preview, and only to this family's active subscribers.",
+    ))
+
+    if "newsletter_manage" not in st.session_state:
+        st.session_state.newsletter_manage = False
+    if st.button(
+        f"{texts.get('subscriber', 'Subscriber')} {texts.get('management', 'Management')}",
+        key="newsletter_manage_button",
+    ):
+        st.session_state.newsletter_manage = True
+    if st.session_state.newsletter_manage:
+        _subscriber_panel(family_id, lang, texts)
+
+    st.subheader(f"{texts.get('newsletter', 'Newsletter')} {texts.get('publication', 'Publication')}")
+    if st.button(texts.get("preview", "Preview"), key="newsletter_preview_button"):
         try:
-           # Define CSS styles
-           css_style = """
-           <style>
-               @keyframes blinker {
-                   50% { opacity: 0.5; }
-               }
-               .publish-message {
-                   font-size: 24px;
-                   font-weight: bold;
-                   animation: blinker 1s linear infinite;
-                   color: #1f77b4;
-               }
-           </style>
-           """
-           # Display publication message and link
-           ops_svr = context.get('ops_svr')
-           
-           st.markdown(css_style, unsafe_allow_html=True)
-           st.markdown(f'<div class="publish-message">{UI_TEXTS["confirm"]}: {UI_TEXTS["publish"]} {UI_TEXTS["language"]}:{l10n}, click the link below:</div>', 
-                       unsafe_allow_html=True)
-           st.markdown(f'<div class="publish-message" style="font-size: 50px;"><a href="{ops_svr}/pub?family_id={own_family_id}&lang={l10n}&email={st.session_state.user_email}&password={password}" target="_blank">FamilyTreesOps</a></div>', 
-                       unsafe_allow_html=True)
-        except Exception as e:
-            st.error(f"️❌ {fu.get_function_name()}: {UI_TEXTS['publish']} {UI_TEXTS['language']}: {l10n}: {str(e)} {UI_TEXTS['failed']}")
+            st.session_state.newsletter_preview = nl.build_snapshot(family_id, lang)
+        except SystemExit as exc:
+            st.session_state.newsletter_preview = None
+            st.error(str(exc) or texts.get("failed", "Failed"))
+        except Exception as exc:
+            st.session_state.newsletter_preview = None
+            st.error(f"{texts.get('failed', 'Failed')}: {exc}")
 
-st.markdown("---")
-st.subheader(f"{UI_TEXTS['navigation']}")
+    preview = st.session_state.get("newsletter_preview") or {}
+    matches = (
+        preview.get("family_id") == family_id
+        and preview.get("lang") == lang
+        and preview.get("html")
+    )
+    if not matches:
+        return
+    recipients = preview.get("recipients") or []
+    st.markdown(f"**{texts.get('recipients', 'Recipients')}** ({len(recipients)})")
+    if recipients:
+        st.write(", ".join(recipients))
+    else:
+        st.info(texts.get("newsletter_no_subscribers", "No active subscribers for this family."))
+    st.html(preview["html"])
+    if st.button(texts.get("send", "Send"), type="primary", key="newsletter_send_button"):
+        _show_delivery(nl.deliver_newsletter(preview, send=True), texts)
 
-col1, col2 = st.columns(2)
-with col1:
-    if st.button(f"← {UI_TEXTS['back']}"):
-        st.switch_page("fTrees.py")
-        
-with col2:
-    if st.button(f"{UI_TEXTS['subscriber']} {UI_TEXTS['management']}"):
-        st.switch_page("pages/1_usrMgmt.py")
+
+cu.init_session_state()
+cu.apply_ui_preferences()
+UI_TEXTS = fu.session_texts()
+
+require_role(dbm.User_State["p_admin"], dbm.User_State["f_admin"])
+render_sidebar()
+main()

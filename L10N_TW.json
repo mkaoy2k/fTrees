@@ -236,5 +236,14 @@
     "month_9": "九月",
     "month_10": "十月",
     "month_11": "十一月",
-    "month_12": "十二月"
+    "month_12": "十二月",
+    "preview": "預覽",
+    "send": "寄出",
+    "recipients": "收件人",
+    "dry_run": "試跑",
+    "newsletter_no_subscribers": "這個家族沒有有效訂閱者。",
+    "newsletter_send_blocked": "這個環境已關閉寄信。沒有寄出電子郵件。",
+    "newsletter_snapshot_help": "預覽是此家族與此語言目前的營運伺服器主頁。先預覽才寄出，而且只寄給這個家族的有效訂閱者。",
+    "newsletter_not_member": "This email is not a registered member of this family. 此電子郵件不是本家族的已登記成員。",
+    "newsletter_invalid_email": "That email address is not valid. 這個電子郵件地址無效。"
 }

@@ -236,5 +236,14 @@
     "month_9": "9월",
     "month_10": "10월",
     "month_11": "11월",
-    "month_12": "12월"
+    "month_12": "12월",
+    "preview": "미리보기",
+    "send": "보내기",
+    "recipients": "수신자",
+    "dry_run": "시험 실행",
+    "newsletter_no_subscribers": "이 가족에 활성 구독자가 없습니다.",
+    "newsletter_send_blocked": "이 환경에서는 보내기가 꺼져 있습니다. 메일을 보내지 않았습니다.",
+    "newsletter_snapshot_help": "미리보기는 이 가족과 언어의 현재 운영 서버 첫 페이지입니다. 미리보기 후에만 보내며, 이 가족의 활성 구독자에게만 보냅니다.",
+    "newsletter_not_member": "This email is not a registered member of this family. 此電子郵件不是本家族的已登記成員。",
+    "newsletter_invalid_email": "That email address is not valid. 這個電子郵件地址無效。"
 }

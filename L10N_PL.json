@@ -235,5 +235,14 @@
     "month_9": "Wrzesień",
     "month_10": "Październik",
     "month_11": "Listopad",
-    "month_12": "Grudzień"
+    "month_12": "Grudzień",
+    "preview": "Podgląd",
+    "send": "Wyślij",
+    "recipients": "Odbiorcy",
+    "dry_run": "Próbne uruchomienie",
+    "newsletter_no_subscribers": "Brak aktywnych subskrybentów tej rodziny.",
+    "newsletter_send_blocked": "Wysyłka jest wyłączona w tym środowisku. Żadna wiadomość nie została wysłana.",
+    "newsletter_snapshot_help": "Podgląd to bieżąca strona główna serwera operacyjnego dla tej rodziny i języka. Wiadomość jest wysyłana dopiero po podglądzie i tylko do aktywnych subskrybentów tej rodziny.",
+    "newsletter_not_member": "This email is not a registered member of this family. 此電子郵件不是本家族的已登記成員。",
+    "newsletter_invalid_email": "That email address is not valid. 這個電子郵件地址無效。"
 }
