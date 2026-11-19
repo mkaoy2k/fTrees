@@ -3,7 +3,8 @@
 The public journal (``ops_svr``) keeps serving the family it was started
 with. This module renders that same home page for a chosen family and
 language, rewrites relative links so an email client can load them, and
-sends only to that family's active subscribers.
+sends only to that family's active subscribers whose ``l10n`` matches
+the edition.
 
 Nothing here sends mail unless ``send=True`` and the process is allowed
 to deliver. ``CI``, ``GITHUB_ACTIONS``, and ``NEWSLETTER_DISABLE_SEND``
@@ -130,14 +131,47 @@ def unsubscribe_family_subscriber(email, family_id):
     return bool(dbm.remove_subscriber(normalized))
 
 
-def active_recipient_emails(family_id):
-    """Active subscribers whose user row belongs to ``family_id``."""
+def active_recipient_emails(family_id, lang):
+    """Active subscribers of this family whose ``l10n`` equals ``lang``.
+
+    The comparison is the same exact match ``ops_svr`` used when ``/pub``
+    loaded subscribers with ``get_subscribers(..., lang=lang)``. A blank
+    language matches nobody.
+    """
+    if not isinstance(lang, str) or not lang:
+        return []
     emails = []
     for row in dbm.list_family_subscribers(family_id, state="active"):
+        if row.get("l10n") != lang:
+            continue
         email = dbm.normalize_subscriber_email(row.get("email"))
         if email and email not in emails:
             emails.append(email)
     return emails
+
+
+def family_display_name(family_id):
+    """Stored family name, or None when the row or the name is missing.
+
+    A database error is treated as a missing name so the subject line can
+    still be built.
+    """
+    try:
+        number = dbm.parse_family_id(family_id)
+    except ValueError:
+        return None
+    if number is None:
+        return None
+    try:
+        family = dbm.get_family(number)
+    except Exception:
+        return None
+    if not isinstance(family, dict):
+        return None
+    name = family.get("name")
+    if isinstance(name, str) and name.strip():
+        return name.strip()
+    return None
 
 
 def _skip_url(url):
@@ -208,8 +242,7 @@ def capture_ops_main_page(family_id, lang, *, fetcher=None, base_url=None):
     return prepare_email_html(raw, base)
 
 
-def newsletter_subject(lang):
-    """Subject line: the same heading the home page shows for ``lang``."""
+def _journal_title(lang):
     try:
         from funcUtils import load_ops_L10N
         catalogs = load_ops_L10N() or {}
@@ -222,6 +255,25 @@ def newsletter_subject(lang):
     return "Newsletter"
 
 
+def newsletter_subject(family_id, lang):
+    """Journal heading plus the family name and family id.
+
+    A missing family row, a blank name, or a lookup error still keeps the
+    family id on the subject.
+    """
+    title = _journal_title(lang)
+    try:
+        number = dbm.parse_family_id(family_id)
+    except ValueError:
+        number = None
+    name = family_display_name(family_id)
+    if number is None:
+        return title
+    if name:
+        return f"{title} — {name} ({number})"
+    return f"{title} — {number}"
+
+
 def build_snapshot(family_id, lang, *, fetcher=None, base_url=None):
     """Preview payload. This never sends mail."""
     number = dbm.parse_family_id(family_id)
@@ -231,8 +283,8 @@ def build_snapshot(family_id, lang, *, fetcher=None, base_url=None):
     html = capture_ops_main_page(number, lang, fetcher=fetcher, base_url=base)
     return {
         "html": html,
-        "subject": newsletter_subject(lang),
-        "recipients": active_recipient_emails(number),
+        "subject": newsletter_subject(number, lang),
+        "recipients": active_recipient_emails(number, lang),
         "family_id": number,
         "lang": lang,
         "base_url": base,

@@ -317,7 +317,7 @@ def get_template_context():
         'email_subscription': g.loc['EMAIL_SUBSCRIPTION'],
         'motto_btn': g.loc['HOME_HTML_H2'],
         'motto': g.loc['HOME_HTML_MOTTO'],
-        'ops_svr': os.getenv("OPS_SVR", "http://localhost:5566"),
+        'ops_svr': os.getenv("OPS_SVR", "http://127.0.0.1:5566"),
         'current_lang': g.loc_key
     }
 
@@ -1006,7 +1006,7 @@ def verify_email():
 
 @app.route('/pub')
 def pub_newsletter():
-    """Send the current home page to one family's active subscribers.
+    """Send the current home page to one family's active subscribers in this language.
 
     ``dry_run`` or ``preview`` returns that HTML and does not send mail.
     A family admin is locked to their own ``family_id``. A platform admin
@@ -1059,7 +1059,7 @@ def pub_newsletter():
     if dry_run:
         return html, 200, {"Content-Type": "text/html; charset=utf-8"}
 
-    recipients = active_recipient_emails(family_id)
+    recipients = active_recipient_emails(family_id, lang)
     if not recipients:
         log.debug(f"No active subscribers found for family_id={family_id}")
         flash(f'{g.loc.get("NO_ACTIVE_SUBSCRIBERS", "No active subscribers found")}', 'warning')
@@ -1067,7 +1067,7 @@ def pub_newsletter():
 
     snapshot = {
         "html": html,
-        "subject": newsletter_subject(lang),
+        "subject": newsletter_subject(family_id, lang),
         "recipients": recipients,
         "family_id": family_id,
         "lang": lang,

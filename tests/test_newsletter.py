@@ -8,6 +8,7 @@ Snapshots are rendered through ops_svr or a stand-in fetcher. These tests
 never open an SMTP connection.
 """
 import os
+import sqlite3
 import sys
 import tempfile
 import unittest
@@ -149,6 +150,7 @@ class NewsletterFlowTests(unittest.TestCase):
         with dbm.get_db_connection() as conn:
             conn.execute(f"DELETE FROM {dbm.db_tables['users']}")
             conn.execute(f"DELETE FROM {dbm.db_tables['articles']}")
+            conn.execute(f"DELETE FROM {dbm.db_tables['families']}")
             conn.commit()
 
     def tearDown(self):
@@ -164,13 +166,21 @@ class NewsletterFlowTests(unittest.TestCase):
         _insert_user("Member@Example.com", 1, is_active=dbm.Subscriber_State["pending"], token="keep")
         _insert_user("quiet@example.com", 1, is_active=dbm.Subscriber_State["inactive"])
         _insert_user("active.one@example.com", 1, is_active=dbm.Subscriber_State["active"], l10n="US")
+        _insert_user("active.zh@example.com", 1, is_active=dbm.Subscriber_State["active"], l10n="繁中")
         _insert_user("active.two@example.com", 2, is_active=dbm.Subscriber_State["active"], l10n="US")
+        _insert_user("active.two.zh@example.com", 2, is_active=dbm.Subscriber_State["active"], l10n="繁中")
         _insert_user("waiting@example.com", 1, is_active=dbm.Subscriber_State["pending"])
 
     def test_add_accepts_only_a_member_of_the_selected_family(self):
         self._seed_people()
         before = self._count_users()
-        added = nl.add_family_subscriber("  MEMBER@example.com ", 1, "US")
+        with patch.object(nl.eu, "send_verification_email") as verify, \
+             patch.object(nl.eu, "send_email") as mail, \
+             patch.object(nl.eu, "send_newsletter") as legacy:
+            added = nl.add_family_subscriber("  MEMBER@example.com ", 1, "US")
+        verify.assert_not_called()
+        mail.assert_not_called()
+        legacy.assert_not_called()
         self.assertTrue(added["ok"])
         self.assertEqual(added["email"], "member@example.com")
         row = dbm.get_subscriber("member@example.com")
@@ -203,12 +213,18 @@ class NewsletterFlowTests(unittest.TestCase):
         listed = [row["email"] for row in dbm.list_family_subscribers(1)]
         self.assertEqual(
             listed,
-            ["active.one@example.com", "Member@Example.com", "quiet@example.com", "waiting@example.com"],
+            [
+                "active.one@example.com",
+                "active.zh@example.com",
+                "Member@Example.com",
+                "quiet@example.com",
+                "waiting@example.com",
+            ],
         )
         self.assertNotIn("active.two@example.com", listed)
         self.assertEqual(
             [row["email"] for row in dbm.list_family_subscribers(1, state="active")],
-            ["active.one@example.com"],
+            ["active.one@example.com", "active.zh@example.com"],
         )
         self.assertTrue(nl.unsubscribe_family_subscriber(" ACTIVE.ONE@example.com ", 1))
         self.assertEqual(
@@ -220,8 +236,11 @@ class NewsletterFlowTests(unittest.TestCase):
             dbm.get_subscriber("active.two@example.com")["is_active"],
             dbm.Subscriber_State["active"],
         )
-        self.assertEqual(nl.active_recipient_emails(1), [])
-        self.assertEqual(nl.active_recipient_emails(2), ["active.two@example.com"])
+        self.assertEqual(nl.active_recipient_emails(1, "US"), [])
+        self.assertEqual(nl.active_recipient_emails(1, "繁中"), ["active.zh@example.com"])
+        self.assertEqual(nl.active_recipient_emails(2, "US"), ["active.two@example.com"])
+        self.assertEqual(nl.active_recipient_emails(2, "繁中"), ["active.two.zh@example.com"])
+        self.assertEqual(nl.active_recipient_emails(2, ""), [])
 
     def test_snapshot_uses_a_mocked_ops_svr_and_absolutizes_urls(self):
         self._seed_people()
@@ -252,7 +271,8 @@ class NewsletterFlowTests(unittest.TestCase):
         self.assertIn("background: #fafafa", html)
         self.assertNotIn("<script", html.lower())
         self.assertNotIn('src="/static/a.png"', html)
-        self.assertEqual(snapshot["recipients"], ["active.two@example.com"])
+        self.assertEqual(snapshot["recipients"], ["active.two.zh@example.com"])
+        self.assertNotIn("active.two@example.com", snapshot["recipients"])
         self.assertNotIn("active.one@example.com", snapshot["recipients"])
 
         def explode(*_args, **_kwargs):
@@ -339,8 +359,13 @@ class NewsletterFlowTests(unittest.TestCase):
             snapshot = nl.build_snapshot(1, "US", base_url="http://127.0.0.1:5566")
         send.assert_not_called()
         self.assertEqual(snapshot["recipients"], ["active.one@example.com"])
+        self.assertNotIn("active.zh@example.com", snapshot["recipients"])
         self.assertIn("Family One Market", snapshot["html"])
         self.assertNotIn("Family Two Market", snapshot["html"])
+        self._insert_named_family(1, "Kaos")
+        named = nl.build_snapshot(1, "US", fetcher=lambda *_args: "<p>Family One Market</p>")
+        self.assertIn("— Kaos (1)", named["subject"])
+        self.assertEqual(named["recipients"], ["active.one@example.com"])
 
     def test_pub_dry_run_is_family_scoped_and_does_not_send(self):
         self._seed_people()
@@ -348,6 +373,7 @@ class NewsletterFlowTests(unittest.TestCase):
         _article("Family Two Market", 2)
         _insert_admin("platform@example.com", dbm.User_State["p_admin"], 1)
         _insert_admin("family.admin@example.com", dbm.User_State["f_admin"], 1)
+        self._insert_named_family(2, "Other House")
         client = ops_svr.app.test_client()
 
         with patch.object(ops_svr.eu, "send_email") as send:
@@ -398,6 +424,8 @@ class NewsletterFlowTests(unittest.TestCase):
                 )
         self.assertEqual(send.call_count, 1)
         self.assertEqual(send.call_args.args[1], ["active.two@example.com"])
+        self.assertNotIn("active.two.zh@example.com", send.call_args.args[1])
+        self.assertIn("— Other House (2)", send.call_args.args[2])
         mailed = send.call_args.args[3]
         self.assertIn("Family Two Market", mailed)
         self.assertNotIn("Family One Market", mailed)
@@ -424,12 +452,40 @@ class NewsletterFlowTests(unittest.TestCase):
     def test_base_url_prefers_ops_svr_and_falls_back_to_the_listener(self):
         with patch.dict(os.environ, {"OPS_SVR": "http://localhost:5566/"}, clear=False):
             self.assertEqual(nl.default_base_url(), "http://localhost:5566")
+        sample = (ROOT / "template.env.txt").read_text(encoding="utf-8")
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        self.assertIn("OPS_SVR=http://127.0.0.1:5566", sample)
+        self.assertNotIn("OPS_SVR=http://localhost:5566", sample)
+        self.assertIn("http://127.0.0.1:5566", readme)
         with patch.dict(
             os.environ,
             {"OPS_SVR": "", "OPS_SVR_HOST": "0.0.0.0", "OPS_SVR_PORT": "5566"},
             clear=False,
         ):
             self.assertEqual(nl.default_base_url(), "http://127.0.0.1:5566")
+
+    def test_subject_includes_the_family_name_and_id(self):
+        self._insert_named_family(1, "  Kaos  ")
+        self._insert_named_family(4, "   ")
+        titled = nl.newsletter_subject(1, "US")
+        self.assertIn("— Kaos (1)", titled)
+        blank = nl.newsletter_subject(4, "US")
+        self.assertTrue(blank.endswith("— 4"))
+        self.assertNotIn("(4)", blank)
+        missing = nl.newsletter_subject(99, "US")
+        self.assertTrue(missing.endswith("— 99"))
+        with patch.object(dbm, "get_family", side_effect=sqlite3.Error("down")):
+            failed = nl.newsletter_subject(1, "US")
+        self.assertTrue(failed.endswith("— 1"))
+        self.assertNotIn("(1)", failed)
+
+    def _insert_named_family(self, family_id, name):
+        with dbm.get_db_connection() as conn:
+            conn.execute(
+                f"INSERT INTO {dbm.db_tables['families']} (id, name) VALUES (?, ?)",
+                (family_id, name),
+            )
+            conn.commit()
 
     def _count_users(self):
         with dbm.get_db_connection() as conn:
