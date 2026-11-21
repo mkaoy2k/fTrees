@@ -6,43 +6,26 @@
     
     <div class="card mb-4">
         <div class="card-body">
-            <p class="text-muted">Last updated: {{ last_updated }}</p>
-            
-            <p>Please read these Terms of Service ("Terms") carefully before using our website and services.</p>
-            
-            <h2 class="h4 mb-3">1. Acceptance of Terms</h2>
-            <p>By accessing or using our services, you agree to be bound by these Terms. If you do not agree to these Terms, you may not access or use our services.</p>
-            
-            <h2 class="h4 mb-3">2. Description of Service</h2>
-            <p>We provide a platform for managing family trees. Our services may change or be updated from time to time.</p>
-            
-            <h2 class="h4 mb-3">3. User Accounts</h2>
-            <p>You may need to create an account to access certain features of our services. You are responsible for maintaining the confidentiality of your account information and for all activities that occur under your account.</p>
-            
-            <h2 class="h4 mb-3">4. User Conduct</h2>
-            <p>You agree not to use our services to:</p>
+            <p class="text-muted">{{ last_updated_label or 'Last updated:' }} {{ last_updated }}</p>
+
+            <p>{{ terms_intro }}</p>
+
+            {% for section in terms_sections %}
+            <h2 class="h4 mb-3">{{ section.heading }}</h2>
+            {% for paragraph in section.paragraphs %}
+            <p>{{ paragraph }}</p>
+            {% endfor %}
+            {% if section.bullets %}
             <ul>
-                <li>Violate any laws or regulations</li>
-                <li>Infringe on the rights of others</li>
-                <li>Transmit any harmful or malicious code</li>
-                <li>Interfere with or disrupt our services</li>
-                <li>Engage in any fraudulent or deceptive activities</li>
+                {% for item in section.bullets %}
+                <li>{{ item }}</li>
+                {% endfor %}
             </ul>
-            
-            <h2 class="h4 mb-3">5. Intellectual Property</h2>
-            <p>All content included on our website, such as text, graphics, logos, and software, is our property or the property of our licensors and is protected by copyright and other intellectual property laws.</p>
-            
-            <h2 class="h4 mb-3">6. Limitation of Liability</h2>
-            <p>To the maximum extent permitted by law, we shall not be liable for any indirect, incidental, special, consequential, or punitive damages, or any loss of profits or revenues, whether incurred directly or indirectly.</p>
-            
-            <h2 class="h4 mb-3">7. Termination</h2>
-            <p>We may terminate or suspend your access to our services immediately, without prior notice or liability, for any reason whatsoever, including without limitation if you breach these Terms.</p>
-            
-            <h2 class="h4 mb-3">8. Changes to Terms</h2>
-            <p>We reserve the right to modify or replace these Terms at any time. We will provide notice of any changes by posting the new Terms on this page.</p>
-            
-            <h2 class="h4 mb-3">9. Contact Us</h2>
-            <p>If you have any questions about these Terms, please contact us at <a href="mailto:{{ admin_email }}">{{ admin }}</a>.</p>
+            {% endif %}
+            {% endfor %}
+
+            <h2 class="h4 mb-3">9. {{ contact_link or 'Contact Us' }}</h2>
+            <p>{{ terms_contact }} <a href="mailto:{{ admin_email }}">{{ admin }}</a>.</p>
         </div>
     </div>
 </div>

@@ -202,6 +202,16 @@ _MEMBERSHIP_COPY_FALLBACK = {
         "ignore": "若您並未提出此申請，請忽略這封信。",
         "closing": "祝安好",
     },
+    "简中": {
+        "subject": "请先向家族管理员登记后再订阅",
+        "heading": "订阅前请先完成家族登记",
+        "intro": "您使用下面这个电子邮箱申请订阅本家族通讯。",
+        "action": "此地址尚未登记为本家族成员。请先联系对应的家族管理员，提供您的电子邮箱和个人资料完成登记，之后才能订阅。",
+        "admin_label": "家族管理员：",
+        "admin_unknown": "请向您的家族管理员登记。服务器尚未设置管理员邮箱。",
+        "ignore": "如果您并未提出此申请，请忽略这封邮件。",
+        "closing": "祝好",
+    },
     "US": {
         "subject": "Register with your family Admin before subscribing",
         "heading": "Register before you subscribe",
@@ -226,7 +236,7 @@ _MEMBERSHIP_COPY_KEYS = {
 
 
 def _membership_copy():
-    """Traditional Chinese and English strings for the non-member email."""
+    """Traditional Chinese, Simplified Chinese, and English for the non-member email."""
     catalogs = {}
     try:
         from funcUtils import load_ops_L10N
@@ -244,21 +254,26 @@ def _membership_copy():
                 localized[lang][field] = value
             else:
                 localized[lang][field] = fallbacks[field]
-    subject = f"{localized['繁中']['subject']} / {localized['US']['subject']}"
-    return subject, localized["繁中"], localized["US"]
+    subject = (
+        f"{localized['繁中']['subject']} / "
+        f"{localized['简中']['subject']} / "
+        f"{localized['US']['subject']}"
+    )
+    return subject, localized["繁中"], localized["简中"], localized["US"]
 
 
 def send_membership_instruction_email(mail, email, admin_email=None):
     """Tell a non-member to register with the family Admin. The body is bilingual."""
     admin_email = (admin_email or "").strip()
     try:
-        subject, zh, en = _membership_copy()
+        subject, zh, cn, en = _membership_copy()
         html = render_template(
             "email/register_first.html",
             email=email,
             admin_email=admin_email,
             app_name=Config.APP_NAME,
             zh=zh,
+            cn=cn,
             en=en,
         )
         msg = Message(
@@ -273,10 +288,68 @@ def send_membership_instruction_email(mail, email, admin_email=None):
         return False
 
 
-def send_verification_email(mail, email, token, is_subscribe=True):
-    """Send the subscribe or unsubscribe confirmation mail."""
+def _verification_copy(lang, is_subscribe, app_name, email):
+    """Subject and body strings for the confirmation mail in one language."""
+    catalogs = {}
+    try:
+        from funcUtils import load_ops_L10N, normalize_ops_lang
+        catalogs = load_ops_L10N() or {}
+        chosen = normalize_ops_lang(lang, catalogs, default="US") or "US"
+    except Exception as exc:
+        log.error("Could not load localization for the verification email: %s", exc)
+        chosen = "US"
+    catalog = catalogs.get(chosen) or {}
+    prefix = "VERIFY_SUB" if is_subscribe else "VERIFY_UNSUB"
+    english = {
+        "VERIFY_SUB_SUBJECT": "Please confirm that you want to subscribe to {app}",
+        "VERIFY_UNSUB_SUBJECT": "Please confirm that you want to unsubscribe to {app}",
+        "VERIFY_SUB_TITLE": "Confirm Subscription",
+        "VERIFY_UNSUB_TITLE": "Confirm Unsubscription",
+        "VERIFY_SUB_HEADING": "Confirm Your Subscription",
+        "VERIFY_UNSUB_HEADING": "Confirm Unsubscription",
+        "VERIFY_HELLO": "Hello,",
+        "VERIFY_SUB_BODY": "You recently requested to subscribe to {app} with this email address ({email}).",
+        "VERIFY_UNSUB_BODY": "You recently requested to unsubscribe from {app} with this email address ({email}).",
+        "VERIFY_SUB_PROMPT": "Please click the button below to confirm your subscription:",
+        "VERIFY_UNSUB_PROMPT": "Please click the button below to confirm your unsubscription:",
+        "VERIFY_SUB_BUTTON": "Confirm Subscription",
+        "VERIFY_UNSUB_BUTTON": "Confirm Unsubscription",
+        "VERIFY_OR_COPY": "Or copy and paste this link into your browser:",
+        "VERIFY_IGNORE": "If you did not request this, please ignore this email.",
+        "VERIFY_CLOSING": "Best regards,",
+        "VERIFY_TEAM": "The {app} Team",
+    }
+
+    def pick(key):
+        value = catalog.get(key)
+        if isinstance(value, str) and value.strip():
+            text = value
+        else:
+            text = english[key]
+        return text.replace("{app}", app_name).replace("{email}", email)
+
+    html_lang = {"简中": "zh-CN", "繁中": "zh-Hant", "US": "en"}.get(chosen, "en")
+    return {
+        "subject": pick(f"{prefix}_SUBJECT"),
+        "title": pick(f"{prefix}_TITLE"),
+        "heading": pick(f"{prefix}_HEADING"),
+        "hello": pick("VERIFY_HELLO"),
+        "body": pick(f"{prefix}_BODY"),
+        "prompt": pick(f"{prefix}_PROMPT"),
+        "button": pick(f"{prefix}_BUTTON"),
+        "or_copy": pick("VERIFY_OR_COPY"),
+        "ignore": pick("VERIFY_IGNORE"),
+        "closing": pick("VERIFY_CLOSING"),
+        "team": pick("VERIFY_TEAM"),
+        "html_lang": html_lang,
+    }
+
+
+def send_verification_email(mail, email, token, is_subscribe=True, lang=None):
+    """Send the subscribe or unsubscribe confirmation mail in ``lang``."""
     action = "subscribe" if is_subscribe else "unsubscribe"
-    subject = f"Please confirm that you want to {action} to {Config.APP_NAME}"
+    copy = _verification_copy(lang, is_subscribe, Config.APP_NAME, email)
+    subject = copy["subject"]
     try:
         verification_url = url_for(
             "verify_email",
@@ -296,6 +369,7 @@ def send_verification_email(mail, email, token, is_subscribe=True):
             verification_url=verification_url,
             app_name=Config.APP_NAME,
             email=email,
+            copy=copy,
         )
         msg = Message(
             subject=subject,

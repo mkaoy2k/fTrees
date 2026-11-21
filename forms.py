@@ -54,8 +54,11 @@ class ArticleForm(FlaskForm):
         # Set language choices from template context 
         try:
             from ops_svr import get_template_context
+            from funcUtils import ops_lang_label
             context = get_template_context()
-            self.l10n.choices = [(code, code) for code in context['options']]
+            self.l10n.choices = [
+                (code, ops_lang_label(code)) for code in context['options']
+            ]
             # Set default selected language
             self.l10n.default = lang
             self.process()  # This ensures the default is applied
@@ -63,8 +66,8 @@ class ArticleForm(FlaskForm):
             import logging
             logging.error(f"Error loading language choices: {str(e)}")
             # Fallback to default languages if there's an error
-            self.l10n.choices = [('US', 'English'), ('繁中', '繁體中文')]
-            self.l10n.default = lang if lang in ['US', '繁中'] else 'US'
+            self.l10n.choices = [('US', 'US'), ('繁中', '繁中'), ('简中', 'CN')]
+            self.l10n.default = lang if lang in ['US', '繁中', '简中'] else 'US'
             self.process()  # This ensures the default is applied
         
     # Form fields defined at class level

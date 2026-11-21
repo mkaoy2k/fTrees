@@ -779,7 +779,7 @@ def show_fadmin_content() -> None:
             # Language selection
             lang_list = fu.get_languages()
             if not lang_list:
-                lang_list = ["US", "繁中"]
+                lang_list = ["US", "繁中", "简中"]
             
             current_lang = st.session_state.app_context.get('language')
             lang_index = fu.language_index(lang_list, current_lang)
@@ -1023,7 +1023,7 @@ def show_front_end():
             # Language selection
             lang_list = fu.get_languages()
             if not lang_list:
-                lang_list = ["US", "繁中"]
+                lang_list = ["US", "繁中", "简中"]
                 
             current_lang = st.session_state.app_context.get('language')
             lang_index = fu.language_index(lang_list, current_lang)

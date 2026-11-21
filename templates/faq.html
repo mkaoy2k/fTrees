@@ -19,7 +19,7 @@
     {% if images[i] %}
     <img 
       src="{{ images[i] }}" 
-      alt="FAQ Image {{ i+1 }}"
+      alt="{{ faq_image_alt or 'FAQ Image' }} {{ i+1 }}"
       style="max-width: 100%; height: auto; margin: 10px 0;"
     >
     {% endif %}

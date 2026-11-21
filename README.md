@@ -143,7 +143,8 @@ fTrees/
 ├── ops_artBatch.py       # Optional PyQt article editor (one family)
 ├── ops_svr.py            # Public journal server (waitress)
 ├── ops_dbMgmt.py         # Database management operations
-├── ops_L10N.json         # Operations-server language index
+├── ops_L10N.json         # Operations-server language index (繁中, 简中, US)
+├── ops_L10N_CN.json      # Operations-server Simplified Chinese (简中, labelled CN)
 ├── ops_menu.json         # Operations-server menu
 ├── page_category.json    # Which article categories fill each public page
 ├── forms.py              # Feedback and contact forms
@@ -238,7 +239,7 @@ python ops_svr.py --family_id 1
 python ops_svr.py --dev --family_id 1   # Flask debugger, not for production
 ```
 
-The default listen address is `127.0.0.1:5566` (`OPS_SVR_HOST`, `OPS_SVR_PORT`). Language is chosen per request. Copy the new keys from `template.env.txt` into `.env` before starting the server. Do not commit `.env`.
+The default listen address is `127.0.0.1:5566` (`OPS_SVR_HOST`, `OPS_SVR_PORT`). Language is chosen per request from the switcher. The catalog key for Simplified Chinese is `简中` (zh-CN), shown as CN. `繁中` is Traditional Chinese and `US` is English. A request for `CN` or `zh-CN` selects `简中`. Copy the new keys from `template.env.txt` into `.env` before starting the server. Do not commit `.env`.
 
 ### Newsletter
 
@@ -246,7 +247,7 @@ The default listen address is `127.0.0.1:5566` (`OPS_SVR_HOST`, `OPS_SVR_PORT`).
 
 Subscribers are rows in the shared `users` table. The page lists the rows for the selected family_id. Unsubscribe sets `is_active` to inactive and clears the token, which is the same update `ops_svr` applies after an unsubscribe is confirmed. Adding an address succeeds only when that address, compared without case after stripping whitespace, is already a user whose `family_id` equals the selected family. The row is marked active immediately. No confirmation mail is sent. The page does not insert a user and does not change `family_id`. An address that is not a member of that family shows an error in English and Traditional Chinese.
 
-Publication previews the operations-server home page (`templates/home.html`) for the selected family_id and language. The preview uses the same article query as the public main page: approved articles in the article window, kept only when `article.family_id` and `article.l10n` match. Relative image and link URLs are rewritten to `OPS_SVR`, and `static/main.css` is inlined, because an email client does not resolve `/static/...` against the server. Nothing is sent until you preview and then choose send. Recipients are that family's active subscribers whose `l10n` equals the edition language. The subject line is the journal heading plus the family name and the family id. If the family row or its name is missing, the subject still includes the family id. Mail is not sent when `CI` or `GITHUB_ACTIONS` is set, or when `NEWSLETTER_DISABLE_SEND` is `1`. The sample `OPS_SVR` in `template.env.txt` is `http://127.0.0.1:5566`, the same address the listener uses by default (`OPS_SVR_HOST` `127.0.0.1`, `OPS_SVR_PORT` `5566`). If `OPS_SVR` is unset, newsletter links use that listener address (a wildcard host is written as `127.0.0.1`).
+Publication previews the operations-server home page (`templates/home.html`) for the selected family_id and language. The preview uses the same article query as the public main page: approved articles in the article window for that `family_id`. English (`US`) and Traditional Chinese (`繁中`) also require `article.l10n` to match. Simplified Chinese (`简中`, labelled CN) shows a `繁中` article in that category when no `简中` article exists, then a `US` article. The newsletter language list shows CN for `简中`. Relative image and link URLs are rewritten to `OPS_SVR`, and `static/main.css` is inlined, because an email client does not resolve `/static/...` against the server. Nothing is sent until you preview and then choose send. Recipients are that family's active subscribers whose `l10n` equals the edition language. The subject line is the journal heading plus the family name and the family id. If the family row or its name is missing, the subject still includes the family id. Mail is not sent when `CI` or `GITHUB_ACTIONS` is set, or when `NEWSLETTER_DISABLE_SEND` is `1`. The sample `OPS_SVR` in `template.env.txt` is `http://127.0.0.1:5566`, the same address the listener uses by default (`OPS_SVR_HOST` `127.0.0.1`, `OPS_SVR_PORT` `5566`). If `OPS_SVR` is unset, newsletter links use that listener address (a wildcard host is written as `127.0.0.1`).
 
 `/pub` on the operations server uses that same snapshot. `dry_run=1` (or `preview=1`) returns the HTML and does not send. A family admin is locked to their own family_id. A platform admin may pass `family_id`.
 

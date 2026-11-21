@@ -58,3 +58,48 @@ class CatalogTests(unittest.TestCase):
         spanish = json.loads((ROOT / "L10N_ES.json").read_text(encoding="utf-8"))
         self.assertIn("Editor", spanish["csv_editor"])
         self.assertIn("MENU_QUERY_TBL_BY_3GEN", spanish)
+
+
+class OpsSimplifiedChineseTests(unittest.TestCase):
+    """简中 is Simplified Chinese (zh-CN), labelled CN. Same key as L10N.json."""
+
+    def test_ops_catalogs_share_keys_and_cn_is_simplified(self):
+        index = json.loads((ROOT / "ops_L10N.json").read_text(encoding="utf-8"))
+        self.assertEqual(index["简中"], "ops_L10N_CN.json")
+        self.assertEqual(index["繁中"], "ops_L10N_TW.json")
+        self.assertEqual(index["US"], "ops_L10N_US.json")
+        menu = json.loads((ROOT / "ops_menu.json").read_text(encoding="utf-8"))
+        self.assertEqual(menu["简中"][0], ["home", "首页"])
+        us = json.loads((ROOT / "ops_L10N_US.json").read_text(encoding="utf-8"))
+        tw = json.loads((ROOT / "ops_L10N_TW.json").read_text(encoding="utf-8"))
+        cn = json.loads((ROOT / "ops_L10N_CN.json").read_text(encoding="utf-8"))
+        self.assertEqual(set(us), set(tw))
+        self.assertEqual(set(us), set(cn))
+        self.assertEqual(cn["YOUR_LANGUAGE"], "您的语言")
+        self.assertEqual(tw["YOUR_LANGUAGE"], "您的語言")
+        self.assertEqual(cn["SETTINGS"], "设置")
+        self.assertEqual(cn["SUBSCRIBE"], "订阅")
+        self.assertEqual(cn["HOME_HTML_T2"], "故事")
+        self.assertEqual(cn["HOME_HTML_T3"], "活动")
+        self.assertNotIn("訂閱", json.dumps(cn, ensure_ascii=False))
+        self.assertNotIn("設定", json.dumps(cn, ensure_ascii=False))
+        self.assertEqual(us["PRIVACY_SECTIONS"][0]["heading"], "1. Information We Collect")
+        self.assertEqual(
+            us["SUB_SUCCESS"],
+            "{email} has been successfully subscribed to our newsletter!",
+        )
+        self.assertIn("个人资料", cn["SUB_NONMEMBER_ACTION"])
+        self.assertIn("個人資料", tw["SUB_NONMEMBER_ACTION"])
+
+    def test_cn_alias_selects_simplified_chinese(self):
+        options = ["繁中", "简中", "US"]
+        self.assertEqual(fu.normalize_ops_lang("CN", options), "简中")
+        self.assertEqual(fu.normalize_ops_lang("zh-CN", options), "简中")
+        self.assertEqual(fu.normalize_ops_lang("zh-Hans", options), "简中")
+        self.assertEqual(fu.normalize_ops_lang("简中", options), "简中")
+        self.assertEqual(fu.normalize_ops_lang("us", options), "US")
+        self.assertEqual(fu.normalize_ops_lang("繁中", options), "繁中")
+        self.assertIsNone(fu.normalize_ops_lang("CN", ["US", "繁中"]))
+        self.assertEqual(fu.ops_lang_label("简中"), "CN")
+        self.assertEqual(fu.ops_lang_label("繁中"), "繁中")
+        self.assertEqual(fu.ops_lang_label("US"), "US")

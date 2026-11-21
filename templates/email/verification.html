@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html>
+<html lang="{{ copy.html_lang }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ 'Confirm Subscription' if action == 'subscribe' else 'Confirm Unsubscription' }} - {{ app_name }}</title>
+    <title>{{ copy.title }} - {{ app_name }}</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -30,27 +30,27 @@
     </style>
 </head>
 <body>
-    <h2>{{ 'Confirm Your Subscription' if action == 'subscribe' else 'Confirm Unsubscription' }}</h2>
-    
-    <p>Hello,</p>
-    
-    <p>You recently requested to {{ 'subscribe to' if action == 'subscribe' else 'unsubscribe from' }} {{ app_name }} with this email address ({{ email }}).</p>
-    
-    <p>Please click the button below to confirm your {{ 'subscription' if action == 'subscribe' else 'unsubscription' }}:</p>
-    
+    <h2>{{ copy.heading }}</h2>
+
+    <p>{{ copy.hello }}</p>
+
+    <p>{{ copy.body }}</p>
+
+    <p>{{ copy.prompt }}</p>
+
     <p>
         <a href="{{ verification_url }}" class="button">
-            {{ 'Confirm Subscription' if action == 'subscribe' else 'Confirm Unsubscription' }}
+            {{ copy.button }}
         </a>
     </p>
-    
-    <p>Or copy and paste this link into your browser:</p>
+
+    <p>{{ copy.or_copy }}</p>
     <p><a href="{{ verification_url }}">{{ verification_url }}</a></p>
-    
-    <p>If you did not request this, please ignore this email.</p>
-    
+
+    <p>{{ copy.ignore }}</p>
+
     <div class="footer">
-        <p>Best regards,<br>The {{ app_name }} Team</p>
+        <p>{{ copy.closing }}<br>{{ copy.team }}</p>
     </div>
 </body>
 </html>

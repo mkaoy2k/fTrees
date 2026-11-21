@@ -479,6 +479,108 @@ class NewsletterFlowTests(unittest.TestCase):
         self.assertTrue(failed.endswith("— 1"))
         self.assertNotIn("(1)", failed)
 
+    def test_simplified_chinese_selection_and_article_fallback(self):
+        """CN selects 简中. A category with no 简中 article borrows 繁中, then US."""
+        self._seed_people()
+        _insert_user("active.cn@example.com", 1, is_active=dbm.Subscriber_State["active"], l10n="简中")
+        _insert_user("stored.cn@example.com", 1, is_active=dbm.Subscriber_State["active"], l10n="CN")
+        _article("Family One Lantern", 1, l10n="繁中")
+        _article("Other House Lantern", 2, l10n="繁中")
+        _article("English Only Picnic", 1, category="Events")
+
+        borrowed = ops_svr.render_main_snapshot(1, "CN", "http://127.0.0.1:5566")
+        self.assertIn('lang="zh-CN"', borrowed)
+        self.assertIn("您的语言", borrowed)
+        self.assertIn("Family One Lantern", borrowed)
+        self.assertIn("English Only Picnic", borrowed)
+        self.assertNotIn("Other House Lantern", borrowed)
+        self.assertNotIn("您的語言", borrowed)
+        self.assertRegex(borrowed, r">\s*CN\s*<")
+
+        traditional = ops_svr.render_main_snapshot(1, "繁中", "http://127.0.0.1:5566")
+        self.assertIn("Family One Lantern", traditional)
+        self.assertNotIn("English Only Picnic", traditional)
+        english = ops_svr.render_main_snapshot(1, "US", "http://127.0.0.1:5566")
+        self.assertIn("English Only Picnic", english)
+        self.assertNotIn("Family One Lantern", english)
+        self.assertIn("Your Language", english)
+        self.assertIn("All Rights Reserved.", english)
+
+        _article("简体焦点", 1, l10n="简中", content="简体正文")
+        chosen = ops_svr.render_main_snapshot(1, "zh-CN", "http://127.0.0.1:5566")
+        self.assertIn("简体焦点", chosen)
+        self.assertIn("简体正文", chosen)
+        self.assertNotIn("Family One Lantern", chosen)
+        self.assertIn("English Only Picnic", chosen)
+
+        only_english = [{"title": "en", "l10n": "US"}, {"title": "tw", "l10n": "繁中"}]
+        self.assertEqual(
+            [row["title"] for row in ops_svr.articles_for_language(only_english, "简中")],
+            ["tw"],
+        )
+        self.assertEqual(ops_svr.articles_for_language([only_english[0]], "繁中"), [])
+
+        _article(
+            "介紹",
+            1,
+            category="About",
+            l10n="繁中",
+            content="傳統介紹正文",
+        )
+        client = ops_svr.app.test_client()
+        switched = client.get(
+            "/setL10N",
+            query_string={"lang": "CN", "page": "about"},
+            base_url=BASE,
+            follow_redirects=True,
+        )
+        about = switched.get_data(as_text=True)
+        self.assertIn("傳統介紹正文", about)
+        self.assertIn("关于族谱", about)
+        cookie = client.get_cookie("current_lang")
+        self.assertIsNotNone(cookie)
+        stayed = client.get("/contact", base_url=BASE)
+        self.assertIn("联系我们", stayed.get_data(as_text=True))
+        self.assertIn('lang="zh-CN"', stayed.get_data(as_text=True))
+
+        privacy = client.get("/privacy", base_url=BASE)
+        self.assertIn("我们收集的信息", privacy.get_data(as_text=True))
+        client.get("/setL10N", query_string={"lang": "US", "page": "home"}, base_url=BASE)
+        privacy_en = client.get("/privacy", base_url=BASE)
+        self.assertIn("1. Information We Collect", privacy_en.get_data(as_text=True))
+        self.assertIn("Your name and email address", privacy_en.get_data(as_text=True))
+
+        feedback = client.get(
+            "/setL10N",
+            query_string={"lang": "zh-Hans", "page": "feedback"},
+            base_url=BASE,
+            follow_redirects=True,
+        )
+        form = feedback.get_data(as_text=True)
+        self.assertIn('value="简中"', form)
+        self.assertIn(">CN<", form.replace("\n", ""))
+
+        with patch.object(ops_svr.eu, "send_verification_email", return_value=True):
+            subscribed = client.post(
+                "/subscribe",
+                data={"email": "member@example.com", "action": "subscribe"},
+                base_url=BASE,
+                follow_redirects=True,
+            )
+        self.assertIn("请查看 member@example.com 以完成下一步。", subscribed.get_data(as_text=True))
+        with dbm.get_db_connection() as conn:
+            stored = conn.execute(
+                f"SELECT l10n FROM {dbm.db_tables['users']} WHERE email = ?",
+                ("member@example.com",),
+            ).fetchone()[0]
+        self.assertEqual(stored, "简中")
+        self.assertEqual(
+            nl.active_recipient_emails(1, "CN"),
+            ["active.cn@example.com", "stored.cn@example.com"],
+        )
+        subject = nl.newsletter_subject(1, "CN")
+        self.assertIn("渤海沤汪高氏族谱通讯期刊", subject)
+
     def _insert_named_family(self, family_id, name):
         with dbm.get_db_connection() as conn:
             conn.execute(

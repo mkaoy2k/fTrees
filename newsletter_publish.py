@@ -131,18 +131,38 @@ def unsubscribe_family_subscriber(email, family_id):
     return bool(dbm.remove_subscriber(normalized))
 
 
+def canonical_edition(lang, catalogs=None):
+    """Operations-server language code. ``CN`` and ``zh-CN`` are ``简中``."""
+    if not isinstance(lang, str) or not lang.strip():
+        return ""
+    if catalogs is None:
+        try:
+            from funcUtils import load_ops_L10N
+            catalogs = load_ops_L10N() or {}
+        except Exception:
+            catalogs = {}
+    from funcUtils import normalize_ops_lang
+    return normalize_ops_lang(lang, catalogs) or lang
+
+
 def active_recipient_emails(family_id, lang):
     """Active subscribers of this family whose ``l10n`` equals ``lang``.
 
     The comparison is the same exact match ``ops_svr`` used when ``/pub``
     loaded subscribers with ``get_subscribers(..., lang=lang)``. A blank
-    language matches nobody.
+    language matches nobody. ``CN`` matches subscribers stored as ``简中``.
     """
-    if not isinstance(lang, str) or not lang:
+    try:
+        from funcUtils import load_ops_L10N
+        catalogs = load_ops_L10N() or {}
+    except Exception:
+        catalogs = {}
+    lang = canonical_edition(lang, catalogs)
+    if not lang:
         return []
     emails = []
     for row in dbm.list_family_subscribers(family_id, state="active"):
-        if row.get("l10n") != lang:
+        if canonical_edition(row.get("l10n"), catalogs) != lang:
             continue
         email = dbm.normalize_subscriber_email(row.get("email"))
         if email and email not in emails:
@@ -248,7 +268,8 @@ def _journal_title(lang):
         catalogs = load_ops_L10N() or {}
     except Exception:
         catalogs = {}
-    loc = catalogs.get(lang) or catalogs.get("US") or {}
+    chosen = canonical_edition(lang)
+    loc = catalogs.get(chosen) or catalogs.get("US") or {}
     title = loc.get("HOME_HTML_H1")
     if isinstance(title, str) and title.strip():
         return title.strip()
@@ -280,13 +301,14 @@ def build_snapshot(family_id, lang, *, fetcher=None, base_url=None):
     if number is None:
         raise ValueError("family_id is required")
     base = (base_url or default_base_url()).rstrip("/")
-    html = capture_ops_main_page(number, lang, fetcher=fetcher, base_url=base)
+    chosen = canonical_edition(lang) or lang
+    html = capture_ops_main_page(number, chosen, fetcher=fetcher, base_url=base)
     return {
         "html": html,
-        "subject": newsletter_subject(number, lang),
-        "recipients": active_recipient_emails(number, lang),
+        "subject": newsletter_subject(number, chosen),
+        "recipients": active_recipient_emails(number, chosen),
         "family_id": number,
-        "lang": lang,
+        "lang": chosen,
         "base_url": base,
     }
 
