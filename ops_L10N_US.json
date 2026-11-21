@@ -170,5 +170,191 @@
     "UPDATE": "Update",
     "USER": "User",
     "USERS": "Users",
-    "YOUR_LANGUAGE": "Your Language"
+    "YOUR_LANGUAGE": "Your Language",
+    "EMAIL_PLACEHOLDER": "Enter your email",
+    "ALL_RIGHTS_RESERVED": "All Rights Reserved.",
+    "FOOTER_RIGHTS": "The content, organization, graphics, design, and other matters related to this site are protected under applicable copyrights, trademarks, and other proprietary (including but not limited to intellectual property) rights. Unauthorized use, reproduction, or distribution of any content from this site is strictly prohibited.",
+    "PRIVACY_LINK": "Privacy Policy",
+    "TERMS_LINK": "Terms of Service",
+    "CONTACT_LINK": "Contact Us",
+    "PRIVACY_HEADER": "Privacy Policy",
+    "TERMS_HEADER": "Terms of Service",
+    "CONTACT_HEADER": "Contact Us",
+    "CONTACT_NAME": "Name",
+    "CONTACT_EMAIL": "Email",
+    "CONTACT_SUBJECT": "Subject",
+    "CONTACT_MESSAGE": "Message",
+    "CONTACT_SUBMIT": "Send Message",
+    "CONTACT_INFO_H": "Contact Information",
+    "CONTACT_INFO_P": "Feel free to reach out to us with any questions or feedback.",
+    "CONTACT_EMAIL_H": "Email",
+    "CONTACT_HOURS_H": "Office Hours",
+    "CONTACT_ADDRESS_H": "Mailing Address",
+    "LAST_UPDATED": "Last updated:",
+    "EMAIL_NOT_VALID": "{email} is not a valid email address",
+    "UNSUB_CHECK_EMAIL": "Please check {email} to confirm unsubscription.",
+    "VERIFY_SEND_FAILED": "Failed to send verification email. Please try again later.",
+    "TRY_AGAIN_LATER": "An error occurred. Please try again later.",
+    "VERIFY_LINK_INVALID": "Invalid verification link",
+    "VERIFY_LINK_EXPIRED": "Invalid or expired verification link",
+    "SUB_SUCCESS": "{email} has been successfully subscribed to our newsletter!",
+    "SUB_FAILED": "Failed to subscribe {email}. Please try again later.",
+    "UNSUB_DONE": "{email} has been unsubscribed from our newsletter.",
+    "RESET_PASSWORD_H": "Reset Your Password",
+    "RESET_NEW_PASSWORD": "New Password",
+    "RESET_NEW_PASSWORD_PH": "Enter your new password",
+    "RESET_PASSWORD_HINT": "Password must be at least 8 characters long.",
+    "RESET_CONFIRM_PASSWORD": "Confirm New Password",
+    "RESET_CONFIRM_PASSWORD_PH": "Confirm your new password",
+    "RESET_SUBMIT": "Reset Password",
+    "RESET_MISMATCH_ALERT": "Passwords do not match!",
+    "RESET_LINK_INVALID": "Invalid password reset link",
+    "RESET_LINK_EXPIRED": "The password reset link is invalid or has expired.",
+    "RESET_FIELDS_REQUIRED": "All fields are required",
+    "RESET_MISMATCH": "Passwords do not match",
+    "RESET_TOO_SHORT": "Password must be at least 8 characters long",
+    "RESET_SUCCESS": "Your password has been reset successfully. Please log in with your new password.",
+    "RESET_FAILED": "Failed to reset password. Please try again.",
+    "CSRF_ERROR": "Invalid CSRF token",
+    "CSRF_MESSAGE": "The form has expired. Please refresh the page and try again.",
+    "VERIFY_SUB_SUBJECT": "Please confirm that you want to subscribe to {app}",
+    "VERIFY_UNSUB_SUBJECT": "Please confirm that you want to unsubscribe to {app}",
+    "VERIFY_SUB_TITLE": "Confirm Subscription",
+    "VERIFY_UNSUB_TITLE": "Confirm Unsubscription",
+    "VERIFY_SUB_HEADING": "Confirm Your Subscription",
+    "VERIFY_UNSUB_HEADING": "Confirm Unsubscription",
+    "VERIFY_HELLO": "Hello,",
+    "VERIFY_SUB_BODY": "You recently requested to subscribe to {app} with this email address ({email}).",
+    "VERIFY_UNSUB_BODY": "You recently requested to unsubscribe from {app} with this email address ({email}).",
+    "VERIFY_SUB_PROMPT": "Please click the button below to confirm your subscription:",
+    "VERIFY_UNSUB_PROMPT": "Please click the button below to confirm your unsubscription:",
+    "VERIFY_SUB_BUTTON": "Confirm Subscription",
+    "VERIFY_UNSUB_BUTTON": "Confirm Unsubscription",
+    "VERIFY_OR_COPY": "Or copy and paste this link into your browser:",
+    "VERIFY_IGNORE": "If you did not request this, please ignore this email.",
+    "VERIFY_CLOSING": "Best regards,",
+    "VERIFY_TEAM": "The {app} Team",
+    "PRIVACY_CONTACT": "If you have any questions about this Privacy Policy, please contact us at",
+    "TERMS_INTRO": "Please read these Terms of Service (\"Terms\") carefully before using our website and services.",
+    "TERMS_CONTACT": "If you have any questions about these Terms, please contact us at",
+    "FAQ_IMAGE_ALT": "FAQ Image",
+    "PRIVACY_SECTIONS": [
+        {
+            "heading": "1. Information We Collect",
+            "paragraphs": [
+                "We collect information that you provide directly to us, such as when you create an account, subscribe to our newsletter, or contact us. This may include:"
+            ],
+            "bullets": [
+                "Your name and email address",
+                "Family information",
+                "Account preferences",
+                "Any other information you choose to provide"
+            ]
+        },
+        {
+            "heading": "2. How We Use Your Information",
+            "paragraphs": [
+                "We may use the information we collect for various purposes, including to:"
+            ],
+            "bullets": [
+                "Provide, maintain, and improve our services",
+                "Send you newsletters and other communications",
+                "Respond to your comments, questions, and requests",
+                "Monitor and analyze trends, usage, and activities",
+                "Detect, investigate, and prevent fraudulent activities"
+            ]
+        },
+        {
+            "heading": "3. Information Sharing",
+            "paragraphs": [
+                "We do not share your personal information with third parties except as described in this Privacy Policy or with your consent."
+            ],
+            "bullets": []
+        },
+        {
+            "heading": "4. Data Security",
+            "paragraphs": [
+                "We take reasonable measures to help protect information about you from loss, theft, misuse, and unauthorized access, disclosure, alteration, and destruction."
+            ],
+            "bullets": []
+        },
+        {
+            "heading": "5. Your Choices",
+            "paragraphs": [
+                "You may update, correct, or delete information about you at any time by logging into your account or contacting us. You can also opt out of receiving promotional communications from us."
+            ],
+            "bullets": []
+        },
+        {
+            "heading": "6. Changes to This Policy",
+            "paragraphs": [
+                "We may change this Privacy Policy from time to time. If we make changes, we will notify you by revising the date at the top of the policy and, in some cases, we may provide additional notice."
+            ],
+            "bullets": []
+        }
+    ],
+    "TERMS_SECTIONS": [
+        {
+            "heading": "1. Acceptance of Terms",
+            "paragraphs": [
+                "By accessing or using our services, you agree to be bound by these Terms. If you do not agree to these Terms, you may not access or use our services."
+            ],
+            "bullets": []
+        },
+        {
+            "heading": "2. Description of Service",
+            "paragraphs": [
+                "We provide a platform for managing family trees. Our services may change or be updated from time to time."
+            ],
+            "bullets": []
+        },
+        {
+            "heading": "3. User Accounts",
+            "paragraphs": [
+                "You may need to create an account to access certain features of our services. You are responsible for maintaining the confidentiality of your account information and for all activities that occur under your account."
+            ],
+            "bullets": []
+        },
+        {
+            "heading": "4. User Conduct",
+            "paragraphs": [
+                "You agree not to use our services to:"
+            ],
+            "bullets": [
+                "Violate any laws or regulations",
+                "Infringe on the rights of others",
+                "Transmit any harmful or malicious code",
+                "Interfere with or disrupt our services",
+                "Engage in any fraudulent or deceptive activities"
+            ]
+        },
+        {
+            "heading": "5. Intellectual Property",
+            "paragraphs": [
+                "All content included on our website, such as text, graphics, logos, and software, is our property or the property of our licensors and is protected by copyright and other intellectual property laws."
+            ],
+            "bullets": []
+        },
+        {
+            "heading": "6. Limitation of Liability",
+            "paragraphs": [
+                "To the maximum extent permitted by law, we shall not be liable for any indirect, incidental, special, consequential, or punitive damages, or any loss of profits or revenues, whether incurred directly or indirectly."
+            ],
+            "bullets": []
+        },
+        {
+            "heading": "7. Termination",
+            "paragraphs": [
+                "We may terminate or suspend your access to our services immediately, without prior notice or liability, for any reason whatsoever, including without limitation if you breach these Terms."
+            ],
+            "bullets": []
+        },
+        {
+            "heading": "8. Changes to Terms",
+            "paragraphs": [
+                "We reserve the right to modify or replace these Terms at any time. We will provide notice of any changes by posting the new Terms on this page."
+            ],
+            "bullets": []
+        }
+    ]
 }

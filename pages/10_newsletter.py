@@ -156,6 +156,7 @@ def main():
         f"{texts.get('select', 'Select')} {texts.get('language', 'Language')}",
         choices,
         index=index,
+        format_func=fu.ops_lang_label,
         key="newsletter_language",
     )
 

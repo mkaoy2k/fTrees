@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="{{ html_lang or 'en' }}">
 <head>
     <!-- Required meta tags -->
     <meta charset="utf-8">
@@ -131,8 +131,9 @@
         }
     </style>
     <!-- FamilyTreesOps 1.0 NOTE: version noted below-->
-    {% if title %}
-        <title>FamilyTreesOps {{ release }} - {{ title }}</title>
+    {% set page_title = page_titles[title] if page_titles is mapping and title in page_titles else title %}
+    {% if page_title %}
+        <title>FamilyTreesOps {{ release }} - {{ page_title }}</title>
     {% else %}
         <title>FamilyTreesOps {{ release }}</title>
     {% endif %}
@@ -183,7 +184,7 @@
                   {% for lang in options %}
                   <option value="{{ url_for('set_l10n', lang=lang, page=title) }}" 
                           {% if lang == current_lang %}selected{% endif %}>
-                      {% if settings is mapping and settings[lang] %}{{ settings[lang] }}{% else %}{{ lang }}{% endif %}
+                      {% if lang_labels is mapping and lang_labels[lang] %}{{ lang_labels[lang] }}{% elif settings is mapping and settings[lang] %}{{ settings[lang] }}{% else %}{{ lang }}{% endif %}
                   </option>
                   {% endfor %}
                 </select> 
@@ -194,7 +195,7 @@
                   <form action="{{ url_for('subscribe') }}" method="post">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="form-group mb-2">
-                      <input type="email" name="email" class="form-control mb-2" placeholder="Enter your email" required>
+                      <input type="email" name="email" class="form-control mb-2" placeholder="{{ email_placeholder or 'Enter your email' }}" required>
                       <div class="d-flex">
                         <button type="submit" name="action" value="subscribe" class="btn btn-primary mr-2">{{ subscribe }}</button>
                         <button type="submit" name="action" value="unsubscribe" class="btn btn-outline-secondary">{{ unsubscribe }}</button>
@@ -220,15 +221,13 @@
     <footer class="mt-auto">
         <div class="container text-center">
             <div style="font-size: 0.85em; margin-top: 1rem;">
-                &copy; <span id="current-year">{{ published_on[:4] if published_on else "" }}</span> {{ t4_team }}. All Rights Reserved.<br>
-                The content, organization, graphics, design, and other matters related to this site are protected under applicable copyrights,
-                trademarks, and other proprietary (including but not limited to intellectual property) rights.
-                Unauthorized use, reproduction, or distribution of any content from this site is strictly prohibited.
+                &copy; <span id="current-year">{{ published_on[:4] if published_on else "" }}</span> {{ t4_team }}. {{ all_rights_reserved or 'All Rights Reserved.' }}<br>
+                {{ footer_rights or 'The content, organization, graphics, design, and other matters related to this site are protected under applicable copyrights, trademarks, and other proprietary (including but not limited to intellectual property) rights. Unauthorized use, reproduction, or distribution of any content from this site is strictly prohibited.' }}
             </div>
             <div style="margin-top: 0.5rem; font-size: 0.8em; color: #999;">
-                <a href="/privacy" style="color: #666; text-decoration: none;">Privacy Policy</a> | 
-                <a href="/terms" style="color: #666; text-decoration: none; margin: 0 10px;">Terms of Service</a> |
-                <a href="/contact" style="color: #666; text-decoration: none;">Contact Us</a>
+                <a href="/privacy" style="color: #666; text-decoration: none;">{{ privacy_link or 'Privacy Policy' }}</a> | 
+                <a href="/terms" style="color: #666; text-decoration: none; margin: 0 10px;">{{ terms_link or 'Terms of Service' }}</a> |
+                <a href="/contact" style="color: #666; text-decoration: none;">{{ contact_link or 'Contact Us' }}</a>
             </div>
         </div>
     </footer>

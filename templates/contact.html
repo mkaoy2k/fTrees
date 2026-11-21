@@ -62,16 +62,16 @@
         <div class="col-md-5">
             <div class="card mb-4">
                 <div class="card-body">
-                    <h3 class="h5">Contact Information</h3>
-                    <p class="mb-4">Feel free to reach out to us with any questions or feedback.</p>
-                    
-                    <h4 class="h6">Email</h4>
+                    <h3 class="h5">{{ contact_info_h }}</h3>
+                    <p class="mb-4">{{ contact_info_p }}</p>
+
+                    <h4 class="h6">{{ contact_email_h }}</h4>
                     <p><a href="mailto:{{ admin_email }}">{{ admin }}</a></p>
-                    
-                    <h4 class="h6">Office Hours</h4>
+
+                    <h4 class="h6">{{ contact_hours_h }}</h4>
                     <p>{{ office_days }}<br>{{ office_hours }}</p>
-                    
-                    <h4 class="h6">Mailing Address</h4>
+
+                    <h4 class="h6">{{ contact_address_h }}</h4>
                     <address>
                         {{ mailing_address }}<br>
                         {{ mailing_city }}<br>

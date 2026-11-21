@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ zh.subject }} / {{ en.subject }} - {{ app_name }}</title>
+    <title>{{ zh.subject }} / {{ cn.subject }} / {{ en.subject }} - {{ app_name }}</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -39,6 +39,22 @@
         <p>{{ zh.ignore }}</p>
         <div class="footer">
             <p>{{ zh.closing }}<br>{{ app_name }}</p>
+        </div>
+    </div>
+    <hr>
+    <div lang="zh-Hans">
+        <h2>{{ cn.heading }}</h2>
+        <p>{{ cn.intro }}</p>
+        <p><strong>{{ email }}</strong></p>
+        <p>{{ cn.action }}</p>
+        {% if admin_email %}
+        <p>{{ cn.admin_label }} <a href="mailto:{{ admin_email }}">{{ admin_email }}</a></p>
+        {% else %}
+        <p>{{ cn.admin_unknown }}</p>
+        {% endif %}
+        <p>{{ cn.ignore }}</p>
+        <div class="footer">
+            <p>{{ cn.closing }}<br>{{ app_name }}</p>
         </div>
     </div>
     <hr>

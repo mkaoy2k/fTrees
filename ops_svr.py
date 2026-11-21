@@ -19,7 +19,12 @@ Main Features:
   - To subscibe if not a family member yet, the user needs to contact 
   the corresponding family Admin to register their email address and 
   personal information in the family database first.
-- All the pages are supported with multi-language support (L10N)
+- All the pages are supported with multi-language support (L10N).
+  Catalog keys are 繁中 (Traditional Chinese), 简中 (Simplified Chinese,
+  zh-CN, labelled CN in the switcher), and US (English). CN and zh-CN
+  in a request select 简中. Stored subscriber and article languages use
+  简中, the same key as L10N.json. A 简中 page with no article in a
+  category shows that family's 繁中 article, then its US article.
 
 Production (default) — waitress, Flask debug off:
     python ops_svr.py --family_id <family_id>
@@ -59,7 +64,16 @@ import threading
 import email_utils as eu
 import auth_utils as au
 import db_utils as dbm
-from funcUtils import load_menu, load_ops_L10N, load_page_cat
+from funcUtils import (
+    OPS_ENGLISH,
+    OPS_SIMPLIFIED,
+    OPS_TRADITIONAL,
+    load_menu,
+    load_ops_L10N,
+    load_page_cat,
+    normalize_ops_lang,
+    ops_lang_label,
+)
 import logging
 from dotenv import load_dotenv
 
@@ -84,6 +98,28 @@ _catalog_lock = threading.Lock()
 # http://127.0.0.1 listener. A language code is not a credential.
 LANG_COOKIE = "current_lang"
 LANG_COOKIE_MAX_AGE = 60 * 60 * 24 * 365
+
+# Catalog key 简中 is Simplified Chinese (zh-CN). The switcher labels it CN.
+# 繁中 is Traditional Chinese. US is English. The same keys are in L10N.json.
+# A 简中 page with no article in a category borrows 繁中, then US, and only
+# from the same family. 繁中 and US stay exact matches.
+ARTICLE_LANG_FALLBACK = {
+    OPS_SIMPLIFIED: (OPS_TRADITIONAL, OPS_ENGLISH),
+}
+HTML_LANG = {
+    OPS_TRADITIONAL: "zh-Hant",
+    OPS_SIMPLIFIED: "zh-CN",
+    OPS_ENGLISH: "en",
+}
+PAGE_TITLE_FIELDS = {
+    "home": "HOME_HTML_H1",
+    "faq": "FAQ_HTML_H1",
+    "about": "ABOUT_HTML_H1",
+    "feedback": "FEEDBACK",
+    "privacy": "PRIVACY_HEADER",
+    "terms": "TERMS_HEADER",
+    "contact": "CONTACT_HEADER",
+}
 
 # Load environment variables
 load_dotenv(".env")
@@ -147,6 +183,110 @@ g_fmail = Mail(app)
 log.info(f"Email server configured: {app.config['MAIL_SERVER']}:{app.config['MAIL_PORT']}")
 log.info(f"Using TLS: {app.config['MAIL_USE_TLS']}, Using SSL: {app.config['MAIL_USE_SSL']}")
 
+def _catalog_text(loc, key, fallback):
+    """One catalog string, or ``fallback`` when the key is missing or blank."""
+    value = loc.get(key) if isinstance(loc, dict) else None
+    if isinstance(value, str) and value.strip():
+        return value
+    return fallback
+
+
+def loc_text(key, fallback, **parts):
+    """Request-language string. Placeholders are ``{name}`` replaced from ``parts``."""
+    text = _catalog_text(getattr(g, "loc", None), key, fallback)
+    for name, value in parts.items():
+        text = text.replace("{" + name + "}", "" if value is None else str(value))
+    return text
+
+
+def articles_for_language(articles, lang):
+    """Articles in ``lang`` for one category of one family.
+
+    ``简中`` uses Traditional Chinese when this category has no Simplified
+    article, then English. ``繁中`` and ``US`` return only exact matches,
+    including an empty list. Order of ``articles`` is preserved.
+    """
+    rows = list(articles or [])
+    exact = [row for row in rows if row.get("l10n") == lang]
+    if exact or lang not in ARTICLE_LANG_FALLBACK:
+        return exact
+    for fallback in ARTICLE_LANG_FALLBACK[lang]:
+        borrowed = [row for row in rows if row.get("l10n") == fallback]
+        if borrowed:
+            return borrowed
+    return []
+
+
+def _section_list(loc, key):
+    value = loc.get(key) if isinstance(loc, dict) else None
+    return value if isinstance(value, list) else []
+
+
+def locale_chrome(loc, loc_key):
+    """Strings the shared layout, legal pages, and reset form render."""
+    loc = loc or {}
+    titles = {
+        route: _catalog_text(loc, field, route)
+        for route, field in PAGE_TITLE_FIELDS.items()
+    }
+    return {
+        "settings": _catalog_text(loc, "SETTINGS", "Settings"),
+        "admin": _catalog_text(loc, "HOME_HTML_T4_TEAM", ""),
+        "your_language": _catalog_text(loc, "YOUR_LANGUAGE", "Your Language"),
+        "subscribe": _catalog_text(loc, "SUBSCRIBE", "Subscribe"),
+        "unsubscribe": _catalog_text(loc, "UNSUBSCRIBE", "Unsubscribe"),
+        "email_subscription": _catalog_text(loc, "EMAIL_SUBSCRIPTION", "Email Subscription"),
+        "motto_btn": _catalog_text(loc, "HOME_HTML_H2", ""),
+        "motto": _catalog_text(loc, "HOME_HTML_MOTTO", ""),
+        "html_lang": HTML_LANG.get(loc_key, "en"),
+        "page_titles": titles,
+        "email_placeholder": _catalog_text(loc, "EMAIL_PLACEHOLDER", "Enter your email"),
+        "all_rights_reserved": _catalog_text(loc, "ALL_RIGHTS_RESERVED", "All Rights Reserved."),
+        "footer_rights": _catalog_text(loc, "FOOTER_RIGHTS", ""),
+        "privacy_link": _catalog_text(loc, "PRIVACY_LINK", "Privacy Policy"),
+        "terms_link": _catalog_text(loc, "TERMS_LINK", "Terms of Service"),
+        "contact_link": _catalog_text(loc, "CONTACT_LINK", "Contact Us"),
+        "privacy_sections": _section_list(loc, "PRIVACY_SECTIONS"),
+        "terms_sections": _section_list(loc, "TERMS_SECTIONS"),
+        "terms_intro": _catalog_text(loc, "TERMS_INTRO", ""),
+        "privacy_contact": _catalog_text(loc, "PRIVACY_CONTACT", ""),
+        "terms_contact": _catalog_text(loc, "TERMS_CONTACT", ""),
+        "last_updated_label": _catalog_text(loc, "LAST_UPDATED", "Last updated:"),
+        "faq_image_alt": _catalog_text(loc, "FAQ_IMAGE_ALT", "FAQ Image"),
+        "contact_info_h": _catalog_text(loc, "CONTACT_INFO_H", "Contact Information"),
+        "contact_info_p": _catalog_text(loc, "CONTACT_INFO_P", ""),
+        "contact_email_h": _catalog_text(loc, "CONTACT_EMAIL_H", "Email"),
+        "contact_hours_h": _catalog_text(loc, "CONTACT_HOURS_H", "Office Hours"),
+        "contact_address_h": _catalog_text(loc, "CONTACT_ADDRESS_H", "Mailing Address"),
+        "reset": {
+            "heading": _catalog_text(loc, "RESET_PASSWORD_H", "Reset Your Password"),
+            "new_password": _catalog_text(loc, "RESET_NEW_PASSWORD", "New Password"),
+            "new_password_ph": _catalog_text(loc, "RESET_NEW_PASSWORD_PH", "Enter your new password"),
+            "hint": _catalog_text(loc, "RESET_PASSWORD_HINT", "Password must be at least 8 characters long."),
+            "confirm": _catalog_text(loc, "RESET_CONFIRM_PASSWORD", "Confirm New Password"),
+            "confirm_ph": _catalog_text(loc, "RESET_CONFIRM_PASSWORD_PH", "Confirm your new password"),
+            "submit": _catalog_text(loc, "RESET_SUBMIT", "Reset Password"),
+            "mismatch_alert": _catalog_text(loc, "RESET_MISMATCH_ALERT", "Passwords do not match!"),
+            "back": _catalog_text(loc, "BACK_TO_HOME", "Back to Home"),
+        },
+    }
+
+
+def _lang_labels(options):
+    return {code: ops_lang_label(code) for code in options}
+
+
+def _heading_aliases(loc_key, field):
+    """Headings that identify an About section, including fallback languages."""
+    _default, catalogs, _options, _menu, _pages = catalog_snapshot()
+    found = []
+    for key in (loc_key, *ARTICLE_LANG_FALLBACK.get(loc_key, ())):
+        text = (catalogs.get(key) or {}).get(field)
+        if isinstance(text, str) and text and text not in found:
+            found.append(text)
+    return found
+
+
 def _load_page_content(page_cat, options, article_window, family_id=None):
     """Build per-language page content for one family.
 
@@ -164,10 +304,7 @@ def _load_page_content(page_cat, options, article_window, family_id=None):
             articles = dbm.get_articles_byDays(cat, byDays=article_window, family_id=family_id)
             if articles:
                 log.debug(f"Found {len(articles)} articles in category '{cat}' from last {article_window} days")
-                l_home[cat] = []
-                for article in articles:
-                    if article['l10n'] == loc:
-                        l_home[cat].append(article)
+                l_home[cat] = articles_for_language(articles, loc)
             else:
                 log.debug(f"No articles found in category '{cat}' from last {article_window} days")
         l_page['home'] = l_home
@@ -177,10 +314,7 @@ def _load_page_content(page_cat, options, article_window, family_id=None):
             articles = dbm.get_articles(cat, family_id=family_id)
             if articles:
                 log.debug(f"Found {len(articles)} articles in category '{cat}'")
-                l_faq[cat] = []
-                for article in articles:
-                    if article['l10n'] == loc:
-                        l_faq[cat].append(article)
+                l_faq[cat] = articles_for_language(articles, loc)
             else:
                 log.debug(f"No articles found in category '{cat}'")
         l_page['faq'] = l_faq
@@ -190,10 +324,7 @@ def _load_page_content(page_cat, options, article_window, family_id=None):
             articles = dbm.get_articles(cat, family_id=family_id)
             if articles:
                 log.debug(f"Found {len(articles)} articles in category '{cat}'")
-                l_about[cat] = []
-                for article in articles:
-                    if article['l10n'] == loc:
-                        l_about[cat].append(article)
+                l_about[cat] = articles_for_language(articles, loc)
             else:
                 log.debug(f"No articles found in category '{cat}'")
         l_page['about'] = l_about
@@ -228,11 +359,12 @@ def init_globals():
     new_l10n = load_ops_L10N()
     new_options = list(new_l10n.keys())
 
-    new_default = os.getenv("L10N") or "US"
-    if new_default not in new_l10n:
+    raw_default = os.getenv("L10N") or "US"
+    new_default = normalize_ops_lang(raw_default, new_options)
+    if not new_default:
         log.warning(
             "L10N=%r is not in the operations catalogs %s; using US",
-            new_default,
+            raw_default,
             new_options,
         )
         new_default = "US" if "US" in new_l10n else new_options[0]
@@ -279,8 +411,7 @@ def bind_request_locale(lang):
     each other's language, menu, or page strings.
     """
     default_key, l10n, options, menu_all, pages = catalog_snapshot()
-    if lang not in options:
-        lang = default_key
+    lang = normalize_ops_lang(lang, options) or default_key
     g.loc_key = lang
     g.loc = l10n[lang]
     g.menu = menu_all[lang]
@@ -299,36 +430,30 @@ def remember_request_lang(lang):
 
 def get_template_context():
     """Return template context for all view functions"""
-    return {
+    context = locale_chrome(g.loc, g.loc_key)
+    context.update({
         'menu': g.menu,
         'options': g.options,
+        'lang_labels': _lang_labels(g.options),
         'release': os.getenv("RELEASE", ""),
-        'settings': g.loc['SETTINGS'],
-        'admin': g.loc['HOME_HTML_T4_TEAM'],
         'admin_email': os.getenv("DB_ADMIN", ""),
         'office_days': os.getenv("OFFICE_DAYS", "Monday - Friday"),
         'office_hours': os.getenv("OFFICE_HOURS", "9:00 AM - 5:00 PM (PST)"),
         'mailing_address': os.getenv("MAILING_ADDRESS", ""),
         'mailing_city': os.getenv("MAILING_CITY", ""),
         'mailing_country': os.getenv("MAILING_COUNTRY", ""),
-        'your_language': g.loc['YOUR_LANGUAGE'],
-        'subscribe': g.loc['SUBSCRIBE'],
-        'unsubscribe': g.loc['UNSUBSCRIBE'],
-        'email_subscription': g.loc['EMAIL_SUBSCRIPTION'],
-        'motto_btn': g.loc['HOME_HTML_H2'],
-        'motto': g.loc['HOME_HTML_MOTTO'],
         'ops_svr': os.getenv("OPS_SVR", "http://127.0.0.1:5566"),
-        'current_lang': g.loc_key
-    }
+        'current_lang': g.loc_key,
+    })
+    return context
 
 @app.before_request
 def before_request():
     """Bind this request's language from the cookie or session onto flask.g."""
-    default_key, _l10n, options, _menu_all, _pages = catalog_snapshot()
+    default_key, _l10n, _options, _menu_all, _pages = catalog_snapshot()
     # The cookie is what a browser on plain HTTP actually sends back.
+    # CN / zh-CN select 简中. bind_request_locale canonicalizes the code.
     lang = request.cookies.get(LANG_COOKIE) or session.get('current_lang')
-    if lang not in options:
-        lang = default_key
     try:
         bind_request_locale(lang)
     except Exception as e:
@@ -434,7 +559,7 @@ def home_article_context(loc, home_page, ft_url):
 def home_sections_for(family_id, lang):
     """Fresh home-page articles for one family and language."""
     default_key, l10n, options, _menu_all, _pages = catalog_snapshot()
-    chosen = lang if lang in l10n else default_key
+    chosen = normalize_ops_lang(lang, options) or default_key
     window = int(os.getenv("ARTICLE_WINDOW", "7"))
     pages = _load_page_content(g_PAGE_CAT, options, window, family_id=family_id)
     return chosen, l10n[chosen], pages[options.index(chosen)]['home']
@@ -445,28 +570,22 @@ def _render_home_html(family_id, lang, base_url):
     default_key, l10n, options, menu_all, _pages = catalog_snapshot()
     chosen, loc, home_page = home_sections_for(family_id, lang)
     menu = menu_all.get(chosen) or menu_all.get(default_key) or next(iter(menu_all.values()))
-    context = {
+    context = locale_chrome(loc, chosen)
+    context.update({
         'menu': menu,
         'options': options,
+        'lang_labels': _lang_labels(options),
         'release': os.getenv("RELEASE", ""),
-        'settings': loc['SETTINGS'],
-        'admin': loc['HOME_HTML_T4_TEAM'],
         'admin_email': os.getenv("DB_ADMIN", ""),
         'office_days': os.getenv("OFFICE_DAYS", "Monday - Friday"),
         'office_hours': os.getenv("OFFICE_HOURS", "9:00 AM - 5:00 PM (PST)"),
         'mailing_address': os.getenv("MAILING_ADDRESS", ""),
         'mailing_city': os.getenv("MAILING_CITY", ""),
         'mailing_country': os.getenv("MAILING_COUNTRY", ""),
-        'your_language': loc['YOUR_LANGUAGE'],
-        'subscribe': loc['SUBSCRIBE'],
-        'unsubscribe': loc['UNSUBSCRIBE'],
-        'email_subscription': loc['EMAIL_SUBSCRIPTION'],
-        'motto_btn': loc['HOME_HTML_H2'],
-        'motto': loc['HOME_HTML_MOTTO'],
         'ops_svr': base_url,
         'current_lang': chosen,
         'ft_url': ft_svr,
-    }
+    })
     context.update(home_article_context(loc, home_page, ft_svr))
     return render_template('home.html', **context)
 
@@ -535,7 +654,7 @@ def faq():
     context = get_template_context()
     
     # Get the articles for the current language's FAQ category
-    faq_articles = g.faq['FAQ']
+    faq_articles = g.faq.get('FAQ') or []
     
     context.update({
         'release': os.getenv("RELEASE", ""),
@@ -555,18 +674,23 @@ def about():
     
     context = get_template_context()
     body = [None, None]
-    log.debug(f"Processing about page content. Found {len(g.about['About'])} articles")
-    
+    about_articles = g.about.get('About') or []
+    log.debug(f"Processing about page content. Found {len(about_articles)} articles")
+    intro_titles = set(_heading_aliases(g.loc_key, 'ABOUT_INTRODUCTION_H2'))
+    repo_titles = set(_heading_aliases(g.loc_key, 'ABOUT_REPOSITORY_H2'))
+
     # Log all article titles for debugging
-    for article in g.about['About']:
+    for article in about_articles:
         log.debug(f"Article title: '{article['title']}' (length: {len(article['content'])} chars)")
-    
-    # Match articles to expected sections
-    for article in g.about['About']:
-        if article['title'] == g.loc['ABOUT_INTRODUCTION_H2']:
+
+    # Match articles to expected sections. A borrowed 繁中 or US article
+    # keeps that language's heading, so those headings count too.
+    for article in about_articles:
+        title = article.get('title')
+        if title in intro_titles and body[0] is None:
             body[0] = article['content']
             log.debug(f"Found introduction article. Content length: {len(body[0])} chars")
-        elif article['title'] == g.loc['ABOUT_REPOSITORY_H2']:
+        elif title in repo_titles and body[1] is None:
             body[1] = article['content']
             log.debug(f"Found repository article. Content length: {len(body[1])} chars")
     context.update({
@@ -620,6 +744,10 @@ def contact():
     context = get_template_context()
     message_sent = False
     form = ContactForm()
+    form.name.label.text = _catalog_text(g.loc, "CONTACT_NAME", "Name")
+    form.email.label.text = _catalog_text(g.loc, "CONTACT_EMAIL", "Email")
+    form.subject.label.text = _catalog_text(g.loc, "CONTACT_SUBJECT", "Subject")
+    form.message.label.text = _catalog_text(g.loc, "CONTACT_MESSAGE", "Message")
     
     if form.validate_on_submit():
         # Get form data
@@ -705,7 +833,7 @@ def contact():
             'email': g.loc.get('CONTACT_EMAIL', 'Email Address'),
             'subject': g.loc.get('CONTACT_SUBJECT', 'Subject'),
             'message': g.loc.get('CONTACT_MESSAGE', 'Your Message'),
-            'submit': g.loc.get('CONTACT_SUBMIT', 'Send Message')
+            'submit': _catalog_text(g.loc, 'CONTACT_SUBMIT', 'Send Message')
         }
     })
     return render_template('contact.html', **context)
@@ -868,16 +996,17 @@ def set_l10n():
     """
     Set up language localization (L10N) routing
     """
-    # Get language and page from URL parameters
-    lang = request.args.get('lang')
+    # Get language and page from URL parameters. CN and zh-CN mean 简中.
+    lang = normalize_ops_lang(request.args.get('lang'), g_L10N_options)
     page = request.args.get('page', 'home')
 
-    if lang in g_L10N_options:
+    if lang:
         try:
             # Refresh shared catalogs, then remember the choice on this session.
             # The next request binds it onto flask.g. Nothing here is process-wide.
             init_globals()
-            if lang not in g_L10N_options:
+            lang = normalize_ops_lang(lang, g_L10N_options)
+            if not lang:
                 raise KeyError(lang)
             bind_request_locale(lang)
             remember_request_lang(g.loc_key)
@@ -911,7 +1040,7 @@ def subscribe():
     
     if not email or not eu.validate_email(email):
         shown = email or raw_email
-        flash(f'{shown} is not a valid email address', 'danger')
+        flash(loc_text("EMAIL_NOT_VALID", "{email} is not a valid email address", email=shown), 'danger')
         return redirect(request.referrer or url_for('home'))
     
     try:
@@ -937,14 +1066,21 @@ def subscribe():
             # For unsubscribing, we can send a verification email or unsubscribe directly
             # For security, we send a verification email here
             token = eu.generate_verification_token()
-            if eu.send_verification_email(g_fmail, email, token, is_subscribe=False):
-                flash(f'Please check {email} to confirm unsubscription.', 'info')
+            if eu.send_verification_email(g_fmail, email, token, is_subscribe=False, lang=g.loc_key):
+                flash(loc_text(
+                    "UNSUB_CHECK_EMAIL",
+                    "Please check {email} to confirm unsubscription.",
+                    email=email,
+                ), 'info')
             else:
-                flash('Failed to send verification email. Please try again later.', 'danger')
-                
+                flash(loc_text(
+                    "VERIFY_SEND_FAILED",
+                    "Failed to send verification email. Please try again later.",
+                ), 'danger')
+
     except Exception as e:
         log.error(f"Error processing subscription: {str(e)}")
-        flash('An error occurred. Please try again later.', 'danger')
+        flash(loc_text("TRY_AGAIN_LATER", "An error occurred. Please try again later."), 'danger')
     
     return redirect(request.referrer or url_for('home'))
 
@@ -960,13 +1096,13 @@ def verify_email():
     
     if not all([email, token, action]):
         log.debug(f"Invalid verification link: {email}, {token}, {action}")
-        flash('Invalid verification link', 'danger')
+        flash(loc_text("VERIFY_LINK_INVALID", "Invalid verification link"), 'danger')
         return redirect(url_for('home'))
     
     # Verify token
     if not dbm.verify_subscription_token(email, token):
         log.debug(f"Invalid or expired verification link: {email}, {token}, {action}")
-        flash('Invalid or expired verification link', 'danger')
+        flash(loc_text("VERIFY_LINK_EXPIRED", "Invalid or expired verification link"), 'danger')
         return redirect(url_for('home'))
     
     # Handle subscription/unsubscription
@@ -993,12 +1129,24 @@ def verify_email():
         }
         if dbm.add_or_update_subscriber(user_data):
             log.debug(f"Subscribed {email} with lang={g.loc_key}")
-            flash(f'{email} has been successfully subscribed to our newsletter!', 'success')
+            flash(loc_text(
+                "SUB_SUCCESS",
+                "{email} has been successfully subscribed to our newsletter!",
+                email=email,
+            ), 'success')
         else:
-            flash(f'Failed to subscribe {email}. Please try again later.', 'danger')
+            flash(loc_text(
+                "SUB_FAILED",
+                "Failed to subscribe {email}. Please try again later.",
+                email=email,
+            ), 'danger')
     else:
         dbm.remove_subscriber(email)
-        flash(f'{email} has been unsubscribed from our newsletter.', 'info')
+        flash(loc_text(
+            "UNSUB_DONE",
+            "{email} has been unsubscribed from our newsletter.",
+            email=email,
+        ), 'info')
     
     return redirect(url_for('home'))
 
@@ -1015,7 +1163,7 @@ def pub_newsletter():
     """
     from newsletter_publish import active_recipient_emails, deliver_newsletter, newsletter_subject
 
-    lang = request.args.get('lang', g.loc_key)
+    lang = normalize_ops_lang(request.args.get('lang', g.loc_key), g_L10N_options)
     email = request.args.get('email')
     password = request.args.get('password')
     dry_run = _request_flag("dry_run") or _request_flag("preview")
@@ -1099,12 +1247,15 @@ def reset_password():
         email = request.args.get('email')
         
         if not token or not email:
-            flash('Invalid password reset link', 'error')
+            flash(loc_text("RESET_LINK_INVALID", "Invalid password reset link"), 'error')
             return redirect(url_for('home'))
-            
+
         # Verify the token against the password_reset_tokens table.
         if not _reset_token_matches(email, token):
-            flash('The password reset link is invalid or has expired.', 'error')
+            flash(loc_text(
+                "RESET_LINK_EXPIRED",
+                "The password reset link is invalid or has expired.",
+            ), 'error')
             return redirect(url_for('home'))
             
         return render_template('reset_password.html', 
@@ -1121,36 +1272,45 @@ def reset_password():
         
         # Validate input
         if not all([email, token, password, confirm_password]):
-            flash('All fields are required', 'error')
+            flash(loc_text("RESET_FIELDS_REQUIRED", "All fields are required"), 'error')
             return redirect(request.url)
-            
+
         if password != confirm_password:
-            flash('Passwords do not match', 'error')
+            flash(loc_text("RESET_MISMATCH", "Passwords do not match"), 'error')
             return redirect(request.url)
-            
+
         if len(password) < 8:
-            flash('Password must be at least 8 characters long', 'error')
+            flash(loc_text("RESET_TOO_SHORT", "Password must be at least 8 characters long"), 'error')
             return redirect(request.url)
-        
+
         # Verify the token again before allowing password reset
         if not _reset_token_matches(email, token):
-            flash('The password reset link is invalid or has expired.', 'error')
+            flash(loc_text(
+                "RESET_LINK_EXPIRED",
+                "The password reset link is invalid or has expired.",
+            ), 'error')
             return redirect(url_for('home'))
-        
+
         # Update the password through the family-tree account helper.
         if au.reset_password(email, password):
-            flash('Your password has been reset successfully. Please log in with your new password.', 'success')
+            flash(loc_text(
+                "RESET_SUCCESS",
+                "Your password has been reset successfully. Please log in with your new password.",
+            ), 'success')
             return redirect(url_for('home'))
         else:
-            flash('Failed to reset password. Please try again.', 'error')
+            flash(loc_text("RESET_FAILED", "Failed to reset password. Please try again."), 'error')
             return redirect(request.url)
 
 # Handle CSRF errors
 @app.errorhandler(CSRFError)
 def handle_csrf_error(e):
     return jsonify({
-        'error': 'Invalid CSRF token',
-        'message': 'The form has expired. Please refresh the page and try again.'
+        'error': loc_text("CSRF_ERROR", "Invalid CSRF token"),
+        'message': loc_text(
+            "CSRF_MESSAGE",
+            "The form has expired. Please refresh the page and try again.",
+        ),
     }), 400
 
 def _env_truthy(name):
@@ -1286,7 +1446,7 @@ def _start_subscription(email):
     users.family_id. The page message matches the non-member message.
     """
     token = eu.generate_verification_token()
-    if not eu.send_verification_email(g_fmail, email, token, is_subscribe=True):
+    if not eu.send_verification_email(g_fmail, email, token, is_subscribe=True, lang=g.loc_key):
         _flash_subscription_send_failed()
         return
 

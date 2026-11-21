@@ -386,12 +386,53 @@ class FamilySubscribeSmokeTest(unittest.TestCase):
         self.assertIn("Register with your family Admin before subscribing", captured["subject"])
         html = captured["html"]
         self.assertIn('lang="zh-Hant"', html)
+        self.assertIn('lang="zh-Hans"', html)
         self.assertIn('lang="en"', html)
         self.assertIn("個人資料", html)
+        self.assertIn("个人资料", html)
         self.assertIn("personal information", html)
         self.assertIn("person@example.com", html)
         self.assertIn("admin@example.com", html)
         self.assertIn("mailto:admin@example.com", html)
+
+    def test_verification_email_follows_the_language(self):
+        captured = {}
+
+        def fake_send(mail, msg, max_retries=3):
+            captured["subject"] = str(msg.subject)
+            captured["html"] = msg.html
+            return True
+
+        with patch.object(email_utils, "_send_mail", fake_send):
+            with ops_svr.app.test_request_context("/", base_url=BASE):
+                sent = email_utils.send_verification_email(
+                    ops_svr.g_fmail,
+                    "person@example.com",
+                    "token",
+                    is_subscribe=True,
+                    lang="CN",
+                )
+        self.assertTrue(sent)
+        self.assertIn("请确认您要订阅", captured["subject"])
+        self.assertIn('lang="zh-CN"', captured["html"])
+        self.assertIn("确认订阅", captured["html"])
+        self.assertIn("person@example.com", captured["html"])
+
+        with patch.object(email_utils, "_send_mail", fake_send):
+            with ops_svr.app.test_request_context("/", base_url=BASE):
+                email_utils.send_verification_email(
+                    ops_svr.g_fmail,
+                    "person@example.com",
+                    "token",
+                    is_subscribe=False,
+                    lang="US",
+                )
+        self.assertEqual(
+            captured["subject"],
+            "Please confirm that you want to unsubscribe to FamilyTreesPE",
+        )
+        self.assertIn("unsubscribe from", captured["html"])
+        self.assertIn("Confirm Unsubscription", captured["html"])
 
     def test_verify_activates_a_member_and_blocks_anyone_else(self):
         ops_svr.app.config["FAMILY_ID"] = FAMILY
@@ -426,6 +467,8 @@ class FamilySubscribeSmokeTest(unittest.TestCase):
     def test_verify_matches_case_and_missing_family_does_not_activate(self):
         _insert_user("Member@Example.com", FAMILY, token="good-token")
         client = ops_svr.app.test_client()
+        with client.session_transaction() as sess:
+            sess["current_lang"] = "US"
         ok = client.get(
             "/verify-email",
             query_string={"email": " member@example.com ", "token": "good-token", "action": "subscribe"},

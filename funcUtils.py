@@ -167,6 +167,64 @@ def language_index(languages, current, default="US"):
         return 0
 
 
+# Operations-server catalog keys. Streamlit's L10N.json uses the same
+# codes, so a subscriber's l10n and an article's l10n stay one value.
+# 繁中 is Traditional Chinese (zh-Hant). US is English.
+# 简中 is Simplified Chinese (zh-CN). The public switcher labels it CN.
+OPS_SIMPLIFIED = "简中"
+OPS_TRADITIONAL = "繁中"
+OPS_ENGLISH = "US"
+OPS_LANG_LABELS = {
+    OPS_TRADITIONAL: OPS_TRADITIONAL,
+    OPS_SIMPLIFIED: "CN",
+    OPS_ENGLISH: OPS_ENGLISH,
+}
+# Request names that select 简中. The stored code is always 简中.
+_OPS_SIMPLIFIED_ALIASES = {
+    "cn": OPS_SIMPLIFIED,
+    "zh-cn": OPS_SIMPLIFIED,
+    "zh_cn": OPS_SIMPLIFIED,
+    "zh-hans": OPS_SIMPLIFIED,
+    "zh_hans": OPS_SIMPLIFIED,
+    "简体中文": OPS_SIMPLIFIED,
+    "簡體中文": OPS_SIMPLIFIED,
+    "简体": OPS_SIMPLIFIED,
+    "簡體": OPS_SIMPLIFIED,
+}
+
+
+def ops_lang_label(lang):
+    """Visible name for an operations-server language code. 简中 is CN."""
+    return OPS_LANG_LABELS.get(lang, lang)
+
+
+def normalize_ops_lang(lang, options, default=None):
+    """Catalog key for an operations-server language request.
+
+    Exact keys win. ``CN``, ``zh-CN``, and ``zh-Hans`` select ``简中``
+    when that catalog is present. Other names match without case
+    (``us`` selects ``US``). Unknown names return ``default`` when that
+    key is in ``options``, otherwise None.
+    """
+    names = list(options or [])
+    if lang in names:
+        return lang
+    if isinstance(lang, str):
+        token = lang.strip()
+        if token in names:
+            return token
+        folded = token.casefold()
+        alias = _OPS_SIMPLIFIED_ALIASES.get(folded)
+        if alias in names:
+            return alias
+        for key in names:
+            if isinstance(key, str) and key.casefold() == folded:
+                return key
+    if default in names:
+        return default
+    return None
+
+
 def session_texts(default="US"):
     """Texts for the language stored in the Streamlit session."""
     catalogs = st.session_state.get("ui_context")
