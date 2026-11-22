@@ -581,6 +581,170 @@ class NewsletterFlowTests(unittest.TestCase):
         subject = nl.newsletter_subject(1, "CN")
         self.assertIn("渤海沤汪高氏族谱通讯期刊", subject)
 
+    def test_japanese_and_korean_pages_and_english_fallback(self):
+        """JP and KR select 日本語 and 한국어. A category with neither borrows US."""
+        self._seed_people()
+        _insert_user("active.jp@example.com", 1, is_active=dbm.Subscriber_State["active"], l10n="日本語")
+        _insert_user("stored.jp@example.com", 1, is_active=dbm.Subscriber_State["active"], l10n="JP")
+        _insert_user("active.kr@example.com", 1, is_active=dbm.Subscriber_State["active"], l10n="한국어")
+        _article("English Picnic", 1, content="English picnic body")
+        _article("繁中焦點", 1, l10n="繁中", content="繁中正文")
+        _article("Other House", 2, l10n="US", content="Hidden from family 1")
+
+        borrowed = ops_svr.render_main_snapshot(1, "ja", "http://127.0.0.1:5566")
+        self.assertIn('lang="ja"', borrowed)
+        self.assertIn("表示言語", borrowed)
+        self.assertIn("English Picnic", borrowed)
+        self.assertIn("English picnic body", borrowed)
+        self.assertNotIn("繁中焦點", borrowed)
+        self.assertNotIn("Other House", borrowed)
+        self.assertRegex(borrowed, r">\s*JP\s*<")
+        self.assertIn("購読", borrowed)
+        self.assertIn("無断転載を禁じます。", borrowed)
+
+        korean = ops_svr.render_main_snapshot(1, "ko-KR", "http://127.0.0.1:5566")
+        self.assertIn('lang="ko"', korean)
+        self.assertIn("표시 언어", korean)
+        self.assertIn("English Picnic", korean)
+        self.assertNotIn("繁中焦點", korean)
+        self.assertRegex(korean, r">\s*KR\s*<")
+        self.assertIn("구독", korean)
+
+        traditional = ops_svr.render_main_snapshot(1, "繁中", "http://127.0.0.1:5566")
+        self.assertIn("繁中焦點", traditional)
+        self.assertNotIn("English Picnic", traditional)
+        english = ops_svr.render_main_snapshot(1, "US", "http://127.0.0.1:5566")
+        self.assertIn("English Picnic", english)
+        self.assertNotIn("繁中焦點", english)
+
+        rows = [
+            {"title": "en", "l10n": "US"},
+            {"title": "tw", "l10n": "繁中"},
+            {"title": "jp", "l10n": "日本語"},
+        ]
+        self.assertEqual(
+            [row["title"] for row in ops_svr.articles_for_language(rows, "简中")],
+            ["tw"],
+        )
+        self.assertEqual(
+            [row["title"] for row in ops_svr.articles_for_language(rows, "日本語")],
+            ["jp"],
+        )
+        self.assertEqual(
+            [row["title"] for row in ops_svr.articles_for_language(rows, "한국어")],
+            ["en"],
+        )
+        self.assertEqual(
+            [row["title"] for row in ops_svr.articles_for_language(rows, "繁中")],
+            ["tw"],
+        )
+        self.assertEqual(ops_svr.articles_for_language(rows, "US")[0]["title"], "en")
+
+        _article("日本語の焦点", 1, l10n="日本語", content="日本語の本文")
+        chosen = ops_svr.render_main_snapshot(1, "ja-JP", "http://127.0.0.1:5566")
+        self.assertIn("日本語の焦点", chosen)
+        self.assertIn("日本語の本文", chosen)
+        self.assertNotIn("English Picnic", chosen)
+        self.assertIn("English picnic body", english)
+
+        _article(
+            "Introduction",
+            1,
+            category="About",
+            l10n="US",
+            content="English introduction body",
+        )
+        client = ops_svr.app.test_client()
+        about = client.get(
+            "/setL10N",
+            query_string={"lang": "JP", "page": "about"},
+            base_url=BASE,
+            follow_redirects=True,
+        )
+        about_html = about.get_data(as_text=True)
+        self.assertIn("English introduction body", about_html)
+        self.assertIn("族譜について", about_html)
+        self.assertIn('lang="ja"', about_html)
+        cookie = client.get_cookie("current_lang")
+        self.assertIsNotNone(cookie)
+
+        privacy = client.get("/privacy", base_url=BASE)
+        self.assertIn("1. 収集する情報", privacy.get_data(as_text=True))
+        terms = client.get("/terms", base_url=BASE)
+        self.assertIn("1. 規約への同意", terms.get_data(as_text=True))
+
+        feedback = client.get(
+            "/setL10N",
+            query_string={"lang": "KR", "page": "feedback"},
+            base_url=BASE,
+            follow_redirects=True,
+        )
+        form = feedback.get_data(as_text=True)
+        self.assertIn('value="한국어"', form)
+        self.assertIn(">KR<", form.replace("\n", ""))
+        self.assertIn("자주 묻는 질문", form)
+        self.assertIn('lang="ko"', form)
+
+        with patch.object(ops_svr.eu, "send_verification_email", return_value=True) as verify:
+            subscribed = client.post(
+                "/subscribe",
+                data={"email": "member@example.com", "action": "subscribe"},
+                base_url=BASE,
+                follow_redirects=True,
+            )
+        self.assertIn(
+            "member@example.com에서 다음 단계를 확인해 주세요.",
+            subscribed.get_data(as_text=True),
+        )
+        verify.assert_called_once()
+        self.assertEqual(verify.call_args.kwargs.get("lang") or verify.call_args.args[-1], "한국어")
+        with dbm.get_db_connection() as conn:
+            stored = conn.execute(
+                f"SELECT l10n FROM {dbm.db_tables['users']} WHERE email = ?",
+                ("member@example.com",),
+            ).fetchone()[0]
+        self.assertEqual(stored, "한국어")
+        self.assertEqual(
+            nl.active_recipient_emails(1, "ja"),
+            ["active.jp@example.com", "stored.jp@example.com"],
+        )
+        self.assertEqual(nl.active_recipient_emails(1, "KR"), ["active.kr@example.com"])
+        self.assertIn("渤海漚汪高氏族譜通信", nl.newsletter_subject(1, "JP"))
+        self.assertIn("발해 어우왕 고씨 족보 소식지", nl.newsletter_subject(1, "ko"))
+
+        fresh = ops_svr.app.test_client()
+        home = fresh.get(
+            "/",
+            base_url=BASE,
+            headers={"Accept-Language": "ja-JP,en;q=0.5"},
+        )
+        self.assertIn("表示言語", home.get_data(as_text=True))
+        self.assertIsNotNone(fresh.get_cookie("current_lang"))
+        stuck = fresh.get("/privacy", base_url=BASE)
+        self.assertIn("1. 収集する情報", stuck.get_data(as_text=True))
+        self.assertIn('lang="ja"', stuck.get_data(as_text=True))
+
+        saved = ops_svr.app.test_client()
+        with saved.session_transaction() as sess:
+            sess["current_lang"] = "繁中"
+        stayed = saved.get(
+            "/",
+            base_url=BASE,
+            headers={"Accept-Language": "ko-KR,ko;q=0.9"},
+        )
+        self.assertIn("您的語言", stayed.get_data(as_text=True))
+        self.assertNotIn("표시 언어", stayed.get_data(as_text=True))
+
+        contact = client.get("/contact", base_url=BASE)
+        self.assertIn("문의하기", contact.get_data(as_text=True))
+        reset = client.get(
+            "/reset-password",
+            query_string={"email": "member@example.com", "token": "missing"},
+            base_url=BASE,
+            follow_redirects=True,
+        )
+        self.assertIn("비밀번호 재설정 링크가 올바르지 않거나 만료되었습니다.", reset.get_data(as_text=True))
+
     def _insert_named_family(self, family_id, name):
         with dbm.get_db_connection() as conn:
             conn.execute(

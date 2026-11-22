@@ -103,3 +103,83 @@ class OpsSimplifiedChineseTests(unittest.TestCase):
         self.assertEqual(fu.ops_lang_label("简中"), "CN")
         self.assertEqual(fu.ops_lang_label("繁中"), "繁中")
         self.assertEqual(fu.ops_lang_label("US"), "US")
+
+
+def _value_shape(value):
+    if isinstance(value, dict):
+        return {key: _value_shape(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_value_shape(item) for item in value]
+    return type(value).__name__
+
+
+class OpsJapaneseKoreanTests(unittest.TestCase):
+    """日本語 and 한국어 match L10N.json. The switcher labels them JP and KR."""
+
+    def test_ops_catalogs_share_keys_with_japanese_and_korean(self):
+        index = json.loads((ROOT / "ops_L10N.json").read_text(encoding="utf-8"))
+        streamlit = json.loads((ROOT / "L10N.json").read_text(encoding="utf-8"))
+        self.assertEqual(index["日本語"], "ops_L10N_JP.json")
+        self.assertEqual(index["한국어"], "ops_L10N_KR.json")
+        self.assertEqual(streamlit["日本語"], "L10N_JP.json")
+        self.assertEqual(streamlit["한국어"], "L10N_KR.json")
+        menu = json.loads((ROOT / "ops_menu.json").read_text(encoding="utf-8"))
+        self.assertEqual(menu["日本語"][0], ["home", "ホーム"])
+        self.assertEqual(menu["한국어"][0], ["home", "홈"])
+        self.assertEqual(menu["简中"][0], ["home", "首页"])
+        us = json.loads((ROOT / "ops_L10N_US.json").read_text(encoding="utf-8"))
+        jp = json.loads((ROOT / "ops_L10N_JP.json").read_text(encoding="utf-8"))
+        kr = json.loads((ROOT / "ops_L10N_KR.json").read_text(encoding="utf-8"))
+        self.assertEqual(_value_shape(us), _value_shape(jp))
+        self.assertEqual(_value_shape(us), _value_shape(kr))
+        self.assertEqual(jp["YOUR_LANGUAGE"], "表示言語")
+        self.assertEqual(kr["YOUR_LANGUAGE"], "표시 언어")
+        self.assertEqual(jp["SUBSCRIBE"], "購読")
+        self.assertEqual(kr["SUBSCRIBE"], "구독")
+        self.assertEqual(jp["PRIVACY_SECTIONS"][0]["heading"], "1. 収集する情報")
+        self.assertEqual(kr["PRIVACY_SECTIONS"][0]["heading"], "1. 수집하는 정보")
+        self.assertIn("{email}", jp["SUB_SUCCESS"])
+        self.assertIn("{app}", kr["VERIFY_SUB_SUBJECT"])
+        self.assertNotEqual(jp["HOME_HTML_H1"], us["HOME_HTML_H1"])
+        self.assertNotEqual(kr["HOME_HTML_H1"], us["HOME_HTML_H1"])
+        self.assertNotIn("訂閱", json.dumps(jp, ensure_ascii=False))
+        self.assertNotIn("订阅", json.dumps(kr, ensure_ascii=False))
+
+    def test_jp_and_kr_aliases_select_the_stored_keys(self):
+        options = ["繁中", "简中", "日本語", "한국어", "US"]
+        self.assertEqual(fu.normalize_ops_lang("JP", options), "日本語")
+        self.assertEqual(fu.normalize_ops_lang("ja", options), "日本語")
+        self.assertEqual(fu.normalize_ops_lang("ja-JP", options), "日本語")
+        self.assertEqual(fu.normalize_ops_lang("日本語", options), "日本語")
+        self.assertEqual(fu.normalize_ops_lang("KR", options), "한국어")
+        self.assertEqual(fu.normalize_ops_lang("ko", options), "한국어")
+        self.assertEqual(fu.normalize_ops_lang("ko-KR", options), "한국어")
+        self.assertEqual(fu.normalize_ops_lang("한국어", options), "한국어")
+        self.assertEqual(fu.normalize_ops_lang("CN", options), "简中")
+        self.assertEqual(fu.normalize_ops_lang("繁中", options), "繁中")
+        self.assertEqual(fu.normalize_ops_lang("us", options), "US")
+        self.assertIsNone(fu.normalize_ops_lang("ja", ["US", "繁中", "简中"]))
+        self.assertIsNone(fu.normalize_ops_lang("ko", ["US", "繁中"]))
+        self.assertEqual(fu.ops_lang_label("日本語"), "JP")
+        self.assertEqual(fu.ops_lang_label("한국어"), "KR")
+        self.assertEqual(fu.ops_lang_label("简中"), "CN")
+        self.assertEqual(fu.ops_html_lang("日本語"), "ja")
+        self.assertEqual(fu.ops_html_lang("한국어"), "ko")
+        self.assertEqual(fu.ops_html_lang("简中"), "zh-CN")
+        self.assertEqual(fu.ops_html_lang("繁中"), "zh-Hant")
+
+    def test_accept_language_maps_japanese_and_korean(self):
+        options = ["繁中", "简中", "日本語", "한국어", "US"]
+        self.assertEqual(fu.match_accept_language("ja-JP,ja;q=0.9,en;q=0.8", options), "日本語")
+        self.assertEqual(fu.match_accept_language("ko-KR,ko;q=0.8,en;q=0.5", options), "한국어")
+        self.assertEqual(fu.match_accept_language("fr,ja;q=0.5", options), "日本語")
+        self.assertEqual(fu.match_accept_language("ja;q=0, en;q=0.8", options), "US")
+        self.assertEqual(fu.match_accept_language("zh-TW,zh;q=0.9,en;q=0.8", options), "繁中")
+        self.assertEqual(fu.match_accept_language("zh-CN,zh;q=0.9", options), "简中")
+        self.assertIsNone(fu.match_accept_language("fr,de;q=0.5", options))
+        self.assertIsNone(fu.match_accept_language("*", options))
+        self.assertIsNone(fu.match_accept_language("", options))
+        self.assertEqual(
+            fu.match_accept_language([("ko", 0.2), ("ja", 0.9)], options),
+            "日本語",
+        )

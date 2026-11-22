@@ -171,57 +171,188 @@ def language_index(languages, current, default="US"):
 # codes, so a subscriber's l10n and an article's l10n stay one value.
 # 繁中 is Traditional Chinese (zh-Hant). US is English.
 # 简中 is Simplified Chinese (zh-CN). The public switcher labels it CN.
+# 日本語 and 한국어 are the L10N.json keys. The switcher labels them JP and KR.
 OPS_SIMPLIFIED = "简中"
 OPS_TRADITIONAL = "繁中"
+OPS_JAPANESE = "日本語"
+OPS_KOREAN = "한국어"
 OPS_ENGLISH = "US"
 OPS_LANG_LABELS = {
     OPS_TRADITIONAL: OPS_TRADITIONAL,
     OPS_SIMPLIFIED: "CN",
+    OPS_JAPANESE: "JP",
+    OPS_KOREAN: "KR",
     OPS_ENGLISH: OPS_ENGLISH,
 }
-# Request names that select 简中. The stored code is always 简中.
-_OPS_SIMPLIFIED_ALIASES = {
+OPS_HTML_LANG = {
+    OPS_TRADITIONAL: "zh-Hant",
+    OPS_SIMPLIFIED: "zh-CN",
+    OPS_JAPANESE: "ja",
+    OPS_KOREAN: "ko",
+    OPS_ENGLISH: "en",
+}
+# Request names that select a catalog. The stored code is always the key.
+# A bare ``zh`` selects 繁中, the original Chinese catalog. ``zh-CN`` and
+# ``zh-Hans`` are listed in full so they still select 简中.
+_OPS_LANG_ALIASES = {
     "cn": OPS_SIMPLIFIED,
     "zh-cn": OPS_SIMPLIFIED,
     "zh_cn": OPS_SIMPLIFIED,
     "zh-hans": OPS_SIMPLIFIED,
     "zh_hans": OPS_SIMPLIFIED,
+    "zh-sg": OPS_SIMPLIFIED,
     "简体中文": OPS_SIMPLIFIED,
     "簡體中文": OPS_SIMPLIFIED,
     "简体": OPS_SIMPLIFIED,
     "簡體": OPS_SIMPLIFIED,
+    "zh-tw": OPS_TRADITIONAL,
+    "zh_tw": OPS_TRADITIONAL,
+    "zh-hant": OPS_TRADITIONAL,
+    "zh_hant": OPS_TRADITIONAL,
+    "zh-hk": OPS_TRADITIONAL,
+    "zh_hk": OPS_TRADITIONAL,
+    "zh-mo": OPS_TRADITIONAL,
+    "zh": OPS_TRADITIONAL,
+    "繁體中文": OPS_TRADITIONAL,
+    "繁体中文": OPS_TRADITIONAL,
+    "繁體": OPS_TRADITIONAL,
+    "jp": OPS_JAPANESE,
+    "ja": OPS_JAPANESE,
+    "ja-jp": OPS_JAPANESE,
+    "ja_jp": OPS_JAPANESE,
+    "japanese": OPS_JAPANESE,
+    "日文": OPS_JAPANESE,
+    "日語": OPS_JAPANESE,
+    "日语": OPS_JAPANESE,
+    "kr": OPS_KOREAN,
+    "ko": OPS_KOREAN,
+    "ko-kr": OPS_KOREAN,
+    "ko_kr": OPS_KOREAN,
+    "korean": OPS_KOREAN,
+    "韓文": OPS_KOREAN,
+    "韩文": OPS_KOREAN,
+    "韓國語": OPS_KOREAN,
+    "韩国语": OPS_KOREAN,
+    "en": OPS_ENGLISH,
+    "en-us": OPS_ENGLISH,
+    "en_us": OPS_ENGLISH,
+    "en-gb": OPS_ENGLISH,
+    "en_gb": OPS_ENGLISH,
+    "english": OPS_ENGLISH,
 }
 
 
 def ops_lang_label(lang):
-    """Visible name for an operations-server language code. 简中 is CN."""
+    """Visible name for an operations-server language code.
+
+    简中 is CN, 日本語 is JP, and 한국어 is KR.
+    """
     return OPS_LANG_LABELS.get(lang, lang)
+
+
+def ops_html_lang(lang):
+    """BCP 47 tag for an operations-server catalog key."""
+    return OPS_HTML_LANG.get(lang, "en")
+
+
+def _ops_alias(token, names):
+    """Catalog key for one language token, or None when it is not offered."""
+    if token in names:
+        return token
+    folded = token.casefold()
+    alias = _OPS_LANG_ALIASES.get(folded)
+    if alias in names:
+        return alias
+    for key in names:
+        if isinstance(key, str) and key.casefold() == folded:
+            return key
+    primary = folded.split("-", 1)[0].split("_", 1)[0]
+    if primary and primary != folded:
+        alias = _OPS_LANG_ALIASES.get(primary)
+        if alias in names:
+            return alias
+    return None
 
 
 def normalize_ops_lang(lang, options, default=None):
     """Catalog key for an operations-server language request.
 
     Exact keys win. ``CN``, ``zh-CN``, and ``zh-Hans`` select ``简中``
-    when that catalog is present. Other names match without case
-    (``us`` selects ``US``). Unknown names return ``default`` when that
-    key is in ``options``, otherwise None.
+    when that catalog is present. ``JP``, ``ja``, and ``ja-JP`` select
+    ``日本語``. ``KR``, ``ko``, and ``ko-KR`` select ``한국어``. Other
+    names match without case (``us`` selects ``US``). A regional tag
+    such as ``en-AU`` uses its primary language when that alias is
+    offered. Unknown names return ``default`` when that key is in
+    ``options``, otherwise None.
     """
     names = list(options or [])
     if lang in names:
         return lang
     if isinstance(lang, str):
         token = lang.strip()
-        if token in names:
-            return token
-        folded = token.casefold()
-        alias = _OPS_SIMPLIFIED_ALIASES.get(folded)
-        if alias in names:
-            return alias
-        for key in names:
-            if isinstance(key, str) and key.casefold() == folded:
-                return key
+        if token:
+            chosen = _ops_alias(token, names)
+            if chosen:
+                return chosen
     if default in names:
         return default
+    return None
+
+
+def _accept_language_tags(header):
+    """Language tags from an Accept-Language value, highest quality first."""
+    if header is None:
+        return []
+    if isinstance(header, str):
+        ranges = []
+        for index, part in enumerate(header.split(",")):
+            piece = part.strip()
+            if not piece:
+                continue
+            bits = [bit.strip() for bit in piece.split(";")]
+            tag = bits[0]
+            quality = 1.0
+            for bit in bits[1:]:
+                if bit.lower().startswith("q="):
+                    try:
+                        quality = float(bit.split("=", 1)[1])
+                    except ValueError:
+                        quality = 0.0
+            ranges.append((quality, index, tag))
+        ranges.sort(key=lambda item: (-item[0], item[1]))
+        return [tag for quality, _index, tag in ranges if quality > 0 and tag]
+    ranges = []
+    for index, item in enumerate(header):
+        if isinstance(item, str):
+            if item.strip():
+                ranges.append((1.0, index, item.strip()))
+            continue
+        if isinstance(item, (tuple, list)) and item and isinstance(item[0], str):
+            quality = item[1] if len(item) > 1 else 1
+            try:
+                quality = float(quality)
+            except (TypeError, ValueError):
+                quality = 0.0
+            if item[0].strip():
+                ranges.append((quality, index, item[0].strip()))
+    ranges.sort(key=lambda item: (-item[0], item[1]))
+    return [tag for quality, _index, tag in ranges if quality > 0]
+
+
+def match_accept_language(header, options):
+    """Catalog key for the best Accept-Language match, or None.
+
+    Tags are tried in quality order. ``ja`` and ``ja-JP`` select
+    ``日本語`` when that catalog is present. ``ko`` and ``ko-KR`` select
+    ``한국어``. A tag that names no catalog is skipped. ``*`` is ignored.
+    """
+    names = list(options or [])
+    for tag in _accept_language_tags(header):
+        if tag == "*":
+            continue
+        chosen = normalize_ops_lang(tag, names)
+        if chosen:
+            return chosen
     return None
 
 

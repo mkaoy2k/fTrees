@@ -525,8 +525,11 @@ def add_or_update_user(
             - is_active: The user's active status, must be one of the following:
                 - Subscriber_State['active']
                 - Subscriber_State['inactive']
-            - l10n: The user's language, must be one of the following:
-                - 'US'
+            - l10n: Language code stored as text. There is no database
+              enum or check constraint. The operations server writes the
+              catalog keys US, 繁中, 简中, 日本語, and 한국어. Other values
+              already stored, including Streamlit languages such as
+              Spanish, are left unchanged.
             - family_id: The user's family ID, must be an integer
             - member_id: The user's member ID, must be an integer
         update: If True, update the user when the user already exists; 

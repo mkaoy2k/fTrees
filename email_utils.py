@@ -212,6 +212,26 @@ _MEMBERSHIP_COPY_FALLBACK = {
         "ignore": "如果您并未提出此申请，请忽略这封邮件。",
         "closing": "祝好",
     },
+    "日本語": {
+        "subject": "購読の前に家族の管理者へ登録してください",
+        "heading": "購読の前に家族への登録が必要です",
+        "intro": "下のメールアドレスで、この家族通信の購読を申し込まれました。",
+        "action": "このアドレスは、まだこの家族のメンバーとして登録されていません。購読の前に、担当の家族管理者へ連絡し、メールアドレスと個人情報を登録してください。",
+        "admin_label": "家族の管理者：",
+        "admin_unknown": "家族の管理者に登録してください。このサーバーには管理者のメールアドレスが設定されていません。",
+        "ignore": "身に覚えがない場合は、このメールを無視してください。",
+        "closing": "よろしくお願いいたします",
+    },
+    "한국어": {
+        "subject": "구독하기 전에 가족 관리자에게 등록해 주세요",
+        "heading": "구독 전에 가족 등록이 필요합니다",
+        "intro": "아래 이메일 주소로 이 가족 소식지 구독을 신청하셨습니다.",
+        "action": "이 주소는 아직 이 가족의 구성원으로 등록되어 있지 않습니다. 구독하기 전에 담당 가족 관리자에게 연락하여 이메일 주소와 개인 정보를 등록해 주세요.",
+        "admin_label": "가족 관리자:",
+        "admin_unknown": "가족 관리자에게 등록해 주세요. 이 서버에는 관리자 이메일이 설정되어 있지 않습니다.",
+        "ignore": "본인이 신청하지 않았다면 이 메일을 무시하셔도 됩니다.",
+        "closing": "감사합니다",
+    },
     "US": {
         "subject": "Register with your family Admin before subscribing",
         "heading": "Register before you subscribe",
@@ -223,6 +243,7 @@ _MEMBERSHIP_COPY_FALLBACK = {
         "closing": "Best regards",
     },
 }
+_MEMBERSHIP_LANGS = ("繁中", "简中", "日本語", "한국어", "US")
 _MEMBERSHIP_COPY_KEYS = {
     "subject": "SUB_NONMEMBER_SUBJECT",
     "heading": "SUB_NONMEMBER_HEADING",
@@ -236,7 +257,7 @@ _MEMBERSHIP_COPY_KEYS = {
 
 
 def _membership_copy():
-    """Traditional Chinese, Simplified Chinese, and English for the non-member email."""
+    """Traditional Chinese, Simplified Chinese, Japanese, Korean, and English."""
     catalogs = {}
     try:
         from funcUtils import load_ops_L10N
@@ -254,19 +275,20 @@ def _membership_copy():
                 localized[lang][field] = value
             else:
                 localized[lang][field] = fallbacks[field]
-    subject = (
-        f"{localized['繁中']['subject']} / "
-        f"{localized['简中']['subject']} / "
-        f"{localized['US']['subject']}"
-    )
-    return subject, localized["繁中"], localized["简中"], localized["US"]
+    subject = " / ".join(localized[lang]["subject"] for lang in _MEMBERSHIP_LANGS)
+    return subject, tuple(localized[lang] for lang in _MEMBERSHIP_LANGS)
 
 
 def send_membership_instruction_email(mail, email, admin_email=None):
-    """Tell a non-member to register with the family Admin. The body is bilingual."""
+    """Tell a non-member to register with the family Admin.
+
+    The body repeats the instruction in Traditional Chinese, Simplified
+    Chinese, Japanese, Korean, and English, because this address has no
+    saved language yet.
+    """
     admin_email = (admin_email or "").strip()
     try:
-        subject, zh, cn, en = _membership_copy()
+        subject, (zh, cn, jp, kr, en) = _membership_copy()
         html = render_template(
             "email/register_first.html",
             email=email,
@@ -274,6 +296,8 @@ def send_membership_instruction_email(mail, email, admin_email=None):
             app_name=Config.APP_NAME,
             zh=zh,
             cn=cn,
+            jp=jp,
+            kr=kr,
             en=en,
         )
         msg = Message(
@@ -291,13 +315,17 @@ def send_membership_instruction_email(mail, email, admin_email=None):
 def _verification_copy(lang, is_subscribe, app_name, email):
     """Subject and body strings for the confirmation mail in one language."""
     catalogs = {}
+    chosen = "US"
+    html_lang = "en"
     try:
-        from funcUtils import load_ops_L10N, normalize_ops_lang
+        from funcUtils import load_ops_L10N, normalize_ops_lang, ops_html_lang
         catalogs = load_ops_L10N() or {}
         chosen = normalize_ops_lang(lang, catalogs, default="US") or "US"
+        html_lang = ops_html_lang(chosen)
     except Exception as exc:
         log.error("Could not load localization for the verification email: %s", exc)
         chosen = "US"
+        html_lang = "en"
     catalog = catalogs.get(chosen) or {}
     prefix = "VERIFY_SUB" if is_subscribe else "VERIFY_UNSUB"
     english = {
@@ -328,7 +356,6 @@ def _verification_copy(lang, is_subscribe, app_name, email):
             text = english[key]
         return text.replace("{app}", app_name).replace("{email}", email)
 
-    html_lang = {"简中": "zh-CN", "繁中": "zh-Hant", "US": "en"}.get(chosen, "en")
     return {
         "subject": pick(f"{prefix}_SUBJECT"),
         "title": pick(f"{prefix}_TITLE"),
