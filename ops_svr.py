@@ -749,105 +749,110 @@ def terms():
 @app.route("/contact", methods=['GET', 'POST'])
 def contact():
     from forms import ContactForm
-    
+
     """Contact Us page"""
-    
-    context = get_template_context()
-    message_sent = False
-    form = ContactForm()
-    form.name.label.text = _catalog_text(g.loc, "CONTACT_NAME", "Name")
-    form.email.label.text = _catalog_text(g.loc, "CONTACT_EMAIL", "Email")
-    form.subject.label.text = _catalog_text(g.loc, "CONTACT_SUBJECT", "Subject")
-    form.message.label.text = _catalog_text(g.loc, "CONTACT_MESSAGE", "Message")
-    
-    if form.validate_on_submit():
-        # Get form data
-        form_data = {
-            'name': form.name.data.strip(),
-            'email': form.email.data.strip(),
-            'subject': form.subject.data.strip(),
-            'message': form.message.data.strip()
-        }
-        
-        # Check if user exists, if not create a new user
-        user = dbm.get_subscriber(form_data['email'])
-        if not user:
-            user_id = dbm.create_user(form_data['email'], dbm.Subscriber_State['in_contact'], lang=context['current_lang'])
-            if not user_id:
-                flash(g.loc.get('ADD_CONTACT_ERROR', 'Contact not created/updated. Please try again later.'), 'danger')
-                return redirect(url_for('contact'))
-        else:
-            user_id = user['id']
-        # Save the form data to database
-        article_data = {
-            'title': form_data['subject'],
-            'content': form_data['message'],
-            'category': dbm.Article_Categories['contact'],
-            'author': form_data['name'],
-            'source': form_data['email'],
-            'src_url': '',
-            'image_url': '',
-            'l10n': context['current_lang'],
-            'user_id': user_id,
-            'family_id': active_family_id(),
-        }
-        article_id = dbm.add_or_update_article(article_data, 
-                                        update=True)
-            
-        if article_id:
-            log.info(f"Created contact form article successfully withID: {article_id}")
-            # Send email to admin
-            to_emails = [context.get('admin_email')]
-            subject = f"New Contact Article: {article_id}"
-            html = f"""
-            <p>Subject: {form_data['subject']}</p>
-            <p>Content: {form_data['message']}</p>
-            <p>Author: {form_data['name']}</p>
-            <p>Source: {form_data['email']}</p>
-            """
-            if eu.send_email(g_fmail, to_emails, subject, html):
-                log.info(f"Successfully sent contact email to {to_emails}")
+
+    try:
+        context = get_template_context()
+        message_sent = False
+        form = ContactForm()
+        form.name.label.text = _catalog_text(g.loc, "CONTACT_NAME", "Name")
+        form.email.label.text = _catalog_text(g.loc, "CONTACT_EMAIL", "Email")
+        form.subject.label.text = _catalog_text(g.loc, "CONTACT_SUBJECT", "Subject")
+        form.message.label.text = _catalog_text(g.loc, "CONTACT_MESSAGE", "Message")
+
+        if form.validate_on_submit():
+            # Get form data
+            form_data = {
+                'name': form.name.data.strip(),
+                'email': form.email.data.strip(),
+                'subject': form.subject.data.strip(),
+                'message': form.message.data.strip()
+            }
+
+            # Check if user exists, if not create a new user
+            user = dbm.get_subscriber(form_data['email'])
+            if not user:
+                user_id = dbm.create_user(form_data['email'], dbm.Subscriber_State['in_contact'], lang=context['current_lang'])
+                if not user_id:
+                    flash(g.loc.get('ADD_CONTACT_ERROR', 'Contact not created/updated. Please try again later.'), 'danger')
+                    return redirect(url_for('contact'))
             else:
-                log.error(f"Failed to send contact email to {to_emails}")
-            message_sent = True
-            flash(g.loc.get('CONTACT_SUCCESS', 'Your contact request has been sent. We will get back to you soon!'), 'success')
-            return redirect(url_for('contact'))
-        else:
-            log.error("Failed to create contact form article")
-            flash(g.loc.get('CONTACT_ERROR', 'Failed to send contact request. Please try again later.'), 'danger')
-    
-    # Initialize form_data with empty values if not set
-    if 'form_data' not in locals():
-        form_data = {
-            'name': '',
-            'email': '',
-            'subject': '',
-            'message': ''
-        }
-    
-    # Add form data to context
-    context.update({
-        'form': form,
-        'release': os.getenv("RELEASE", ""),
-        'header': g.loc.get('CONTACT_HEADER', 'Contact Us'),
-        'title': 'contact',
-        'admin': context['admin'],
-        'admin_email': context['admin_email'],
-        'office_days': context['office_days'],
-        'office_hours': context['office_hours'],
-        'mailing_address': context['mailing_address'],
-        'mailing_city': context['mailing_city'],
-        'mailing_country': context['mailing_country'],
-        'message_sent': message_sent,
-        'form_labels': {
-            'name': g.loc.get('CONTACT_NAME', 'Your Name'),
-            'email': g.loc.get('CONTACT_EMAIL', 'Email Address'),
-            'subject': g.loc.get('CONTACT_SUBJECT', 'Subject'),
-            'message': g.loc.get('CONTACT_MESSAGE', 'Your Message'),
-            'submit': _catalog_text(g.loc, 'CONTACT_SUBMIT', 'Send Message')
-        }
-    })
-    return render_template('contact.html', **context)
+                user_id = user['id']
+            # Save the form data to database
+            article_data = {
+                'title': form_data['subject'],
+                'content': form_data['message'],
+                'category': dbm.Article_Categories['contact'],
+                'author': form_data['name'],
+                'source': form_data['email'],
+                'src_url': '',
+                'image_url': '',
+                'l10n': context['current_lang'],
+                'user_id': user_id,
+                'family_id': active_family_id(),
+            }
+            article_id = dbm.add_or_update_article(article_data,
+                                            update=True)
+
+            if article_id:
+                log.info(f"Created contact form article successfully withID: {article_id}")
+                # Send email to admin
+                to_emails = [context.get('admin_email')]
+                subject = f"New Contact Article: {article_id}"
+                html = f"""
+                <p>Subject: {form_data['subject']}</p>
+                <p>Content: {form_data['message']}</p>
+                <p>Author: {form_data['name']}</p>
+                <p>Source: {form_data['email']}</p>
+                """
+                if eu.send_email(g_fmail, to_emails, subject, html):
+                    log.info(f"Successfully sent contact email to {to_emails}")
+                else:
+                    log.error(f"Failed to send contact email to {to_emails}")
+                message_sent = True
+                flash(g.loc.get('CONTACT_SUCCESS', 'Your contact request has been sent. We will get back to you soon!'), 'success')
+                return redirect(url_for('contact'))
+            else:
+                log.error("Failed to create contact form article")
+                flash(g.loc.get('CONTACT_ERROR', 'Failed to send contact request. Please try again later.'), 'danger')
+
+        # Initialize form_data with empty values if not set
+        if 'form_data' not in locals():
+            form_data = {
+                'name': '',
+                'email': '',
+                'subject': '',
+                'message': ''
+            }
+
+        # Add form data to context
+        context.update({
+            'form': form,
+            'release': os.getenv("RELEASE", ""),
+            'header': g.loc.get('CONTACT_HEADER', 'Contact Us'),
+            'title': 'contact',
+            'admin': context['admin'],
+            'admin_email': context['admin_email'],
+            'office_days': context['office_days'],
+            'office_hours': context['office_hours'],
+            'mailing_address': context['mailing_address'],
+            'mailing_city': context['mailing_city'],
+            'mailing_country': context['mailing_country'],
+            'message_sent': message_sent,
+            'form_labels': {
+                'name': g.loc.get('CONTACT_NAME', 'Your Name'),
+                'email': g.loc.get('CONTACT_EMAIL', 'Email Address'),
+                'subject': g.loc.get('CONTACT_SUBJECT', 'Subject'),
+                'message': g.loc.get('CONTACT_MESSAGE', 'Your Message'),
+                'submit': _catalog_text(g.loc, 'CONTACT_SUBMIT', 'Send Message')
+            }
+        })
+        return render_template('contact.html', **context)
+    except Exception as e:
+        log.error(f"Error in contact route: {e}", exc_info=True)
+        flash(g.loc.get('CONTACT_FAIL', 'Failed to process contact request. Please try again later.'), 'danger')
+        return redirect(url_for('home'))
 
 @app.route("/feedback", methods=['GET', 'POST'])
 def feedback():
