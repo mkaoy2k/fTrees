@@ -26,8 +26,9 @@ def _ops_texts():
     """Operations-server strings for the signed-in language, else US."""
     catalogs = fu.load_ops_L10N()
     language = (st.session_state.get("app_context") or {}).get("language") or "US"
-    if language not in catalogs:
-        language = "US" if "US" in catalogs else next(iter(catalogs), None)
+    language = fu.normalize_ops_lang(language, catalogs, default="US")
+    if not language:
+        language = next(iter(catalogs), None) if catalogs else None
     if not language:
         return {}
     return catalogs.get(language) or {}

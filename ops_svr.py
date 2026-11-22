@@ -20,11 +20,14 @@ Main Features:
   the corresponding family Admin to register their email address and 
   personal information in the family database first.
 - All the pages are supported with multi-language support (L10N).
-  Catalog keys are 繁中 (Traditional Chinese), 简中 (Simplified Chinese,
-  zh-CN, labelled CN in the switcher), and US (English). CN and zh-CN
-  in a request select 简中. Stored subscriber and article languages use
-  简中, the same key as L10N.json. A 简中 page with no article in a
-  category shows that family's 繁中 article, then its US article.
+  Catalog keys match L10N.json: 繁中 (Traditional Chinese), 简中
+  (Simplified Chinese, zh-CN, labelled CN), 日本語 (Japanese, labelled
+  JP), 한국어 (Korean, labelled KR), and US (English). CN / zh-CN,
+  JP / ja / ja-JP, and KR / ko / ko-KR in a request select those keys.
+  Stored subscriber and article languages use the same keys. A 简中
+  page with no article in a category shows that family's 繁中 article,
+  then its US article. A 日本語 or 한국어 page with no article in a
+  category shows that family's US article. 繁中 and US stay exact.
 
 Production (default) — waitress, Flask debug off:
     python ops_svr.py --family_id <family_id>
@@ -66,12 +69,16 @@ import auth_utils as au
 import db_utils as dbm
 from funcUtils import (
     OPS_ENGLISH,
+    OPS_JAPANESE,
+    OPS_KOREAN,
     OPS_SIMPLIFIED,
     OPS_TRADITIONAL,
     load_menu,
     load_ops_L10N,
     load_page_cat,
+    match_accept_language,
     normalize_ops_lang,
+    ops_html_lang,
     ops_lang_label,
 )
 import logging
@@ -99,17 +106,15 @@ _catalog_lock = threading.Lock()
 LANG_COOKIE = "current_lang"
 LANG_COOKIE_MAX_AGE = 60 * 60 * 24 * 365
 
-# Catalog key 简中 is Simplified Chinese (zh-CN). The switcher labels it CN.
-# 繁中 is Traditional Chinese. US is English. The same keys are in L10N.json.
-# A 简中 page with no article in a category borrows 繁中, then US, and only
-# from the same family. 繁中 and US stay exact matches.
+# Catalog keys match L10N.json. The switcher labels 简中 as CN, 日本語 as
+# JP, and 한국어 as KR. 繁中 is Traditional Chinese. US is English.
+# A 简中 page with no article in a category borrows 繁中, then US.
+# 日本語 and 한국어 borrow US only. Borrowing stays inside one family
+# and one category. 繁中 and US stay exact matches.
 ARTICLE_LANG_FALLBACK = {
     OPS_SIMPLIFIED: (OPS_TRADITIONAL, OPS_ENGLISH),
-}
-HTML_LANG = {
-    OPS_TRADITIONAL: "zh-Hant",
-    OPS_SIMPLIFIED: "zh-CN",
-    OPS_ENGLISH: "en",
+    OPS_JAPANESE: (OPS_ENGLISH,),
+    OPS_KOREAN: (OPS_ENGLISH,),
 }
 PAGE_TITLE_FIELDS = {
     "home": "HOME_HTML_H1",
@@ -203,8 +208,10 @@ def articles_for_language(articles, lang):
     """Articles in ``lang`` for one category of one family.
 
     ``简中`` uses Traditional Chinese when this category has no Simplified
-    article, then English. ``繁中`` and ``US`` return only exact matches,
-    including an empty list. Order of ``articles`` is preserved.
+    article, then English. ``日本語`` and ``한국어`` use English when this
+    category has no article in that language. ``繁中`` and ``US`` return
+    only exact matches, including an empty list. Order of ``articles``
+    is preserved.
     """
     rows = list(articles or [])
     exact = [row for row in rows if row.get("l10n") == lang]
@@ -238,7 +245,7 @@ def locale_chrome(loc, loc_key):
         "email_subscription": _catalog_text(loc, "EMAIL_SUBSCRIPTION", "Email Subscription"),
         "motto_btn": _catalog_text(loc, "HOME_HTML_H2", ""),
         "motto": _catalog_text(loc, "HOME_HTML_MOTTO", ""),
-        "html_lang": HTML_LANG.get(loc_key, "en"),
+        "html_lang": ops_html_lang(loc_key),
         "page_titles": titles,
         "email_placeholder": _catalog_text(loc, "EMAIL_PLACEHOLDER", "Enter your email"),
         "all_rights_reserved": _catalog_text(loc, "ALL_RIGHTS_RESERVED", "All Rights Reserved."),
@@ -450,10 +457,14 @@ def get_template_context():
 @app.before_request
 def before_request():
     """Bind this request's language from the cookie or session onto flask.g."""
-    default_key, _l10n, _options, _menu_all, _pages = catalog_snapshot()
+    default_key, _l10n, options, _menu_all, _pages = catalog_snapshot()
     # The cookie is what a browser on plain HTTP actually sends back.
-    # CN / zh-CN select 简中. bind_request_locale canonicalizes the code.
+    # A saved cookie or session wins. On a first visit, Accept-Language
+    # can select 简中, 日本語, or 한국어 (and the other catalogs).
+    # bind_request_locale canonicalizes aliases to the stored key.
     lang = request.cookies.get(LANG_COOKIE) or session.get('current_lang')
+    if not lang:
+        lang = match_accept_language(request.headers.get("Accept-Language"), options)
     try:
         bind_request_locale(lang)
     except Exception as e:
@@ -683,8 +694,8 @@ def about():
     for article in about_articles:
         log.debug(f"Article title: '{article['title']}' (length: {len(article['content'])} chars)")
 
-    # Match articles to expected sections. A borrowed 繁中 or US article
-    # keeps that language's heading, so those headings count too.
+    # Match articles to expected sections. A borrowed article keeps its
+    # own heading, so fallback-language headings count too.
     for article in about_articles:
         title = article.get('title')
         if title in intro_titles and body[0] is None:
@@ -996,7 +1007,8 @@ def set_l10n():
     """
     Set up language localization (L10N) routing
     """
-    # Get language and page from URL parameters. CN and zh-CN mean 简中.
+    # Get language and page from URL parameters.
+    # CN / zh-CN mean 简中. JP / ja / ja-JP mean 日本語. KR / ko / ko-KR mean 한국어.
     lang = normalize_ops_lang(request.args.get('lang'), g_L10N_options)
     page = request.args.get('page', 'home')
 

@@ -132,7 +132,11 @@ def unsubscribe_family_subscriber(email, family_id):
 
 
 def canonical_edition(lang, catalogs=None):
-    """Operations-server language code. ``CN`` and ``zh-CN`` are ``简中``."""
+    """Operations-server language code.
+
+    ``CN`` and ``zh-CN`` are ``简中``. ``JP``, ``ja``, and ``ja-JP`` are
+    ``日本語``. ``KR``, ``ko``, and ``ko-KR`` are ``한국어``.
+    """
     if not isinstance(lang, str) or not lang.strip():
         return ""
     if catalogs is None:
@@ -151,6 +155,7 @@ def active_recipient_emails(family_id, lang):
     The comparison is the same exact match ``ops_svr`` used when ``/pub``
     loaded subscribers with ``get_subscribers(..., lang=lang)``. A blank
     language matches nobody. ``CN`` matches subscribers stored as ``简中``.
+    ``JP`` matches ``日本語``, and ``KR`` matches ``한국어``.
     """
     try:
         from funcUtils import load_ops_L10N

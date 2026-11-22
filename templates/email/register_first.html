@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ zh.subject }} / {{ cn.subject }} / {{ en.subject }} - {{ app_name }}</title>
+    <title>{{ zh.subject }} / {{ cn.subject }} / {{ jp.subject }} / {{ kr.subject }} / {{ en.subject }} - {{ app_name }}</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -55,6 +55,38 @@
         <p>{{ cn.ignore }}</p>
         <div class="footer">
             <p>{{ cn.closing }}<br>{{ app_name }}</p>
+        </div>
+    </div>
+    <hr>
+    <div lang="ja">
+        <h2>{{ jp.heading }}</h2>
+        <p>{{ jp.intro }}</p>
+        <p><strong>{{ email }}</strong></p>
+        <p>{{ jp.action }}</p>
+        {% if admin_email %}
+        <p>{{ jp.admin_label }} <a href="mailto:{{ admin_email }}">{{ admin_email }}</a></p>
+        {% else %}
+        <p>{{ jp.admin_unknown }}</p>
+        {% endif %}
+        <p>{{ jp.ignore }}</p>
+        <div class="footer">
+            <p>{{ jp.closing }}<br>{{ app_name }}</p>
+        </div>
+    </div>
+    <hr>
+    <div lang="ko">
+        <h2>{{ kr.heading }}</h2>
+        <p>{{ kr.intro }}</p>
+        <p><strong>{{ email }}</strong></p>
+        <p>{{ kr.action }}</p>
+        {% if admin_email %}
+        <p>{{ kr.admin_label }} <a href="mailto:{{ admin_email }}">{{ admin_email }}</a></p>
+        {% else %}
+        <p>{{ kr.admin_unknown }}</p>
+        {% endif %}
+        <p>{{ kr.ignore }}</p>
+        <div class="footer">
+            <p>{{ kr.closing }}<br>{{ app_name }}</p>
         </div>
     </div>
     <hr>

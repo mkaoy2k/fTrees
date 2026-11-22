@@ -1,5 +1,7 @@
 {
     "繁中": [["home", "主頁"], ["faq", "常見問題"], ["about", "關於族譜"], ["feedback", "家人投稿"]],
     "简中": [["home", "首页"], ["faq", "常见问题"], ["about", "关于族谱"], ["feedback", "家人投稿"]],
+    "日本語": [["home", "ホーム"], ["faq", "よくある質問"], ["about", "族譜について"], ["feedback", "家族の投稿"]],
+    "한국어": [["home", "홈"], ["faq", "자주 묻는 질문"], ["about", "족보 소개"], ["feedback", "가족 기고"]],
     "US": [["home", "Home"], ["faq", "FAQ"], ["about", "About FamilyTrees"], ["feedback", "Feedback"]]
 }

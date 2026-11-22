@@ -66,8 +66,14 @@ class ArticleForm(FlaskForm):
             import logging
             logging.error(f"Error loading language choices: {str(e)}")
             # Fallback to default languages if there's an error
-            self.l10n.choices = [('US', 'US'), ('繁中', '繁中'), ('简中', 'CN')]
-            self.l10n.default = lang if lang in ['US', '繁中', '简中'] else 'US'
+            self.l10n.choices = [
+                ('US', 'US'),
+                ('繁中', '繁中'),
+                ('简中', 'CN'),
+                ('日本語', 'JP'),
+                ('한국어', 'KR'),
+            ]
+            self.l10n.default = lang if lang in ('US', '繁中', '简中', '日本語', '한국어') else 'US'
             self.process()  # This ensures the default is applied
         
     # Form fields defined at class level
