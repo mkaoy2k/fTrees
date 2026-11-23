@@ -72,8 +72,15 @@ class ArticleForm(FlaskForm):
                 ('简中', 'CN'),
                 ('日本語', 'JP'),
                 ('한국어', 'KR'),
+                ('Danish', 'DK'),
+                ('German', 'DE'),
+                ('French', 'FR'),
+                ('Lithuanian', 'LT'),
+                ('Polish', 'PL'),
+                ('Spanish', 'ES'),
             ]
-            self.l10n.default = lang if lang in ('US', '繁中', '简中', '日本語', '한국어') else 'US'
+            known = {code for code, _label in self.l10n.choices}
+            self.l10n.default = lang if lang in known else 'US'
             self.process()  # This ensures the default is applied
         
     # Form fields defined at class level

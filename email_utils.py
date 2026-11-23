@@ -232,6 +232,66 @@ _MEMBERSHIP_COPY_FALLBACK = {
         "ignore": "본인이 신청하지 않았다면 이 메일을 무시하셔도 됩니다.",
         "closing": "감사합니다",
     },
+    "Danish": {
+        "subject": "Registrér dig hos familieadministratoren, før du abonnerer",
+        "heading": "Registrér dig, før du abonnerer",
+        "intro": "Du har bedt om at abonnere på dette slægtstidsskrift med e-mailadressen nedenfor.",
+        "action": "Denne adresse er ikke registreret som medlem af denne familie. Kontakt familieadministratoren, og registrér din e-mailadresse sammen med dine personoplysninger, før du abonnerer.",
+        "admin_label": "Familieadministrator:",
+        "admin_unknown": "Registrér dig hos din familieadministrator. Denne server har ingen administrator-e-mail.",
+        "ignore": "Hvis du ikke har bedt om at abonnere, kan du se bort fra denne e-mail.",
+        "closing": "Med venlig hilsen",
+    },
+    "German": {
+        "subject": "Registrieren Sie sich vor dem Abonnieren beim Familienadministrator",
+        "heading": "Registrieren Sie sich, bevor Sie abonnieren",
+        "intro": "Sie möchten das Journal dieser Familie unter der folgenden E-Mail-Adresse abonnieren.",
+        "action": "Diese Adresse ist nicht als Mitglied dieser Familie eingetragen. Wenden Sie sich an den Familienadministrator und registrieren Sie Ihre E-Mail-Adresse zusammen mit Ihren persönlichen Angaben, bevor Sie abonnieren.",
+        "admin_label": "Familienadministrator:",
+        "admin_unknown": "Bitte registrieren Sie sich beim Familienadministrator. Auf diesem Server ist keine Administrator-E-Mail hinterlegt.",
+        "ignore": "Wenn Sie kein Abonnement angefordert haben, können Sie diese E-Mail ignorieren.",
+        "closing": "Mit freundlichen Grüßen",
+    },
+    "French": {
+        "subject": "Inscrivez-vous auprès de l'administrateur de la famille avant de vous abonner",
+        "heading": "Inscrivez-vous avant de vous abonner",
+        "intro": "Vous avez demandé à vous abonner au journal de cette famille avec l'adresse e-mail ci-dessous.",
+        "action": "Cette adresse n'est pas enregistrée comme membre de cette famille. Contactez l'administrateur de la famille et enregistrez votre adresse e-mail ainsi que vos informations personnelles avant de vous abonner.",
+        "admin_label": "Administrateur de la famille :",
+        "admin_unknown": "Inscrivez-vous auprès de l'administrateur de votre famille. Ce serveur n'a pas d'adresse e-mail d'administrateur.",
+        "ignore": "Si vous n'avez pas demandé à vous abonner, vous pouvez ignorer ce message.",
+        "closing": "Cordialement",
+    },
+    "Lithuanian": {
+        "subject": "Prieš prenumeruodami užsiregistruokite pas šeimos administratorių",
+        "heading": "Užsiregistruokite prieš prenumeruodami",
+        "intro": "Prašėte prenumeruoti šios giminės žurnalą toliau nurodytu el. pašto adresu.",
+        "action": "Šis adresas nėra užregistruotas kaip šios šeimos narys. Prieš prenumeruodami susisiekite su šeimos administratoriumi ir užregistruokite el. pašto adresą bei asmens duomenis.",
+        "admin_label": "Šeimos administratorius:",
+        "admin_unknown": "Užsiregistruokite pas šeimos administratorių. Šiame serveryje nėra administratoriaus el. pašto.",
+        "ignore": "Jei prenumeratos neprašėte, šį laišką galite nepaisyti.",
+        "closing": "Pagarbiai",
+    },
+    "Polish": {
+        "subject": "Zarejestruj się u administratora rodziny, zanim zasubskrybujesz",
+        "heading": "Zarejestruj się przed subskrypcją",
+        "intro": "Poproszono o subskrypcję dziennika tej rodziny na poniższy adres e-mail.",
+        "action": "Ten adres nie jest zarejestrowany jako członek tej rodziny. Przed subskrypcją skontaktuj się z administratorem rodziny i zarejestruj adres e-mail wraz z danymi osobowymi.",
+        "admin_label": "Administrator rodziny:",
+        "admin_unknown": "Zarejestruj się u administratora rodziny. Ten serwer nie ma skonfigurowanego adresu e-mail administratora.",
+        "ignore": "Jeśli nie proszono o tę subskrypcję, zignoruj tę wiadomość.",
+        "closing": "Z poważaniem",
+    },
+    "Spanish": {
+        "subject": "Regístrese con el administrador de la familia antes de suscribirse",
+        "heading": "Regístrese antes de suscribirse",
+        "intro": "Ha solicitado suscribirse a la revista de esta familia con la dirección de correo siguiente.",
+        "action": "Esta dirección no está registrada como miembro de esta familia. Contacte al administrador de la familia y registre su correo junto con sus datos personales antes de suscribirse.",
+        "admin_label": "Administrador de la familia:",
+        "admin_unknown": "Regístrese con el administrador de su familia. Este servidor no tiene un correo de administrador configurado.",
+        "ignore": "Si usted no solicitó la suscripción, puede ignorar este mensaje.",
+        "closing": "Atentamente",
+    },
     "US": {
         "subject": "Register with your family Admin before subscribing",
         "heading": "Register before you subscribe",
@@ -243,7 +303,19 @@ _MEMBERSHIP_COPY_FALLBACK = {
         "closing": "Best regards",
     },
 }
-_MEMBERSHIP_LANGS = ("繁中", "简中", "日本語", "한국어", "US")
+_MEMBERSHIP_LANGS = (
+    "繁中",
+    "简中",
+    "日本語",
+    "한국어",
+    "Danish",
+    "German",
+    "French",
+    "Lithuanian",
+    "Polish",
+    "Spanish",
+    "US",
+)
 _MEMBERSHIP_COPY_KEYS = {
     "subject": "SUB_NONMEMBER_SUBJECT",
     "heading": "SUB_NONMEMBER_HEADING",
@@ -256,8 +328,24 @@ _MEMBERSHIP_COPY_KEYS = {
 }
 
 
+def _membership_html_lang(lang):
+    """BCP 47 tag for one membership-email block.
+
+    Simplified Chinese stays ``zh-Hans`` in this mail, which is the tag
+    the template used before the block was generated from the catalogs.
+    The public pages use ``zh-CN`` for the same catalog.
+    """
+    if lang == "简中":
+        return "zh-Hans"
+    try:
+        from funcUtils import ops_html_lang
+        return ops_html_lang(lang)
+    except Exception:
+        return "en"
+
+
 def _membership_copy():
-    """Traditional Chinese, Simplified Chinese, Japanese, Korean, and English."""
+    """One block per operations catalog, Traditional Chinese through English."""
     catalogs = {}
     try:
         from funcUtils import load_ops_L10N
@@ -265,40 +353,37 @@ def _membership_copy():
     except Exception as exc:
         log.error("Could not load localization for the membership email: %s", exc)
 
-    localized = {}
-    for lang, fallbacks in _MEMBERSHIP_COPY_FALLBACK.items():
+    sections = []
+    for lang in _MEMBERSHIP_LANGS:
         catalog = catalogs.get(lang) or {}
-        localized[lang] = {}
+        fallbacks = _MEMBERSHIP_COPY_FALLBACK[lang]
+        block = {"html_lang": _membership_html_lang(lang)}
         for field, key in _MEMBERSHIP_COPY_KEYS.items():
             value = catalog.get(key)
             if isinstance(value, str) and value.strip():
-                localized[lang][field] = value
+                block[field] = value
             else:
-                localized[lang][field] = fallbacks[field]
-    subject = " / ".join(localized[lang]["subject"] for lang in _MEMBERSHIP_LANGS)
-    return subject, tuple(localized[lang] for lang in _MEMBERSHIP_LANGS)
+                block[field] = fallbacks[field]
+        sections.append(block)
+    subject = " / ".join(block["subject"] for block in sections)
+    return subject, sections
 
 
 def send_membership_instruction_email(mail, email, admin_email=None):
     """Tell a non-member to register with the family Admin.
 
-    The body repeats the instruction in Traditional Chinese, Simplified
-    Chinese, Japanese, Korean, and English, because this address has no
-    saved language yet.
+    The body repeats the instruction in every operations-server language,
+    because this address has no saved language yet.
     """
     admin_email = (admin_email or "").strip()
     try:
-        subject, (zh, cn, jp, kr, en) = _membership_copy()
+        subject, sections = _membership_copy()
         html = render_template(
             "email/register_first.html",
             email=email,
             admin_email=admin_email,
             app_name=Config.APP_NAME,
-            zh=zh,
-            cn=cn,
-            jp=jp,
-            kr=kr,
-            en=en,
+            sections=sections,
         )
         msg = Message(
             subject=subject,

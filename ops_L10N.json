@@ -3,5 +3,11 @@
     "简中": "ops_L10N_CN.json",
     "日本語": "ops_L10N_JP.json",
     "한국어": "ops_L10N_KR.json",
+    "Danish": "ops_L10N_DK.json",
+    "German": "ops_L10N_DE.json",
+    "French": "ops_L10N_FR.json",
+    "Lithuanian": "ops_L10N_LT.json",
+    "Polish": "ops_L10N_PL.json",
+    "Spanish": "ops_L10N_ES.json",
     "US": "ops_L10N_US.json"
 }

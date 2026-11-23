@@ -745,6 +745,171 @@ class NewsletterFlowTests(unittest.TestCase):
         )
         self.assertIn("비밀번호 재설정 링크가 올바르지 않거나 만료되었습니다.", reset.get_data(as_text=True))
 
+    def test_european_languages_render_and_fall_back_to_english(self):
+        """DK–ES select the Streamlit keys. A category with none of them borrows US."""
+        self._seed_people()
+        cases = (
+            ("Danish", "da-DK", "da", "DK", "Dit sprog", "Abonnér", "1. Oplysninger vi indsamler", "Tidsskrift for slægten Bohai Ouwang Gao"),
+            ("German", "de-AT", "de", "DE", "Ihre Sprache", "Abonnieren", "1. Welche Daten wir erheben", "Journal der Sippe Bohai Ouwang Gao"),
+            ("French", "fr-CA", "fr", "FR", "Votre langue", "S'abonner", "1. Informations que nous collectons", "Journal du clan Bohai Ouwang Gao"),
+            ("Lithuanian", "lt-LT", "lt", "LT", "Jūsų kalba", "Prenumeruoti", "1. Kokią informaciją renkame", "Bohai Ouwang Gao giminės žurnalas"),
+            ("Polish", "pl-PL", "pl", "PL", "Twój język", "Subskrybuj", "1. Jakie informacje zbieramy", "Dziennik rodu Bohai Ouwang Gao"),
+            ("Spanish", "es-MX", "es", "ES", "Su idioma", "Suscribirse", "1. Información que recopilamos", "Revista del clan Bohai Ouwang Gao"),
+        )
+        for key, _alias, _html, label, _language, _subscribe, _privacy, _title in cases:
+            _insert_user(f"active.{label.lower()}@example.com", 1, is_active=dbm.Subscriber_State["active"], l10n=key)
+            _insert_user(f"stored.{label.lower()}@example.com", 1, is_active=dbm.Subscriber_State["active"], l10n=label)
+        _article("English Picnic", 1, content="English picnic body")
+        _article("繁中焦點", 1, l10n="繁中", content="繁中正文")
+        _article("Other House", 2, l10n="US", content="Hidden from family 1")
+
+        rows = [
+            {"title": "en", "l10n": "US"},
+            {"title": "tw", "l10n": "繁中"},
+            {"title": "de", "l10n": "German"},
+        ]
+        self.assertEqual(
+            [row["title"] for row in ops_svr.articles_for_language(rows, "简中")],
+            ["tw"],
+        )
+        self.assertEqual(
+            [row["title"] for row in ops_svr.articles_for_language(rows, "German")],
+            ["de"],
+        )
+        for key, _alias, _html, _label, _language, _subscribe, _privacy, _title in cases:
+            if key == "German":
+                continue
+            self.assertEqual(
+                [row["title"] for row in ops_svr.articles_for_language(rows, key)],
+                ["en"],
+            )
+        self.assertEqual(ops_svr.articles_for_language(rows, "繁中"), [{"title": "tw", "l10n": "繁中"}])
+        self.assertEqual(ops_svr.articles_for_language([rows[1]], "Danish"), [])
+
+        for key, alias, html_lang, label, your_language, subscribe, privacy, title in cases:
+            page = ops_svr.render_main_snapshot(1, alias, "http://127.0.0.1:5566")
+            self.assertIn(f'lang="{html_lang}"', page)
+            self.assertIn(your_language, page)
+            self.assertIn(subscribe.replace("'", "&#39;"), page)
+            self.assertIn("English Picnic", page)
+            self.assertIn("English picnic body", page)
+            self.assertNotIn("繁中焦點", page)
+            self.assertNotIn("Other House", page)
+            self.assertRegex(page, rf">\s*{label}\s*<")
+            self.assertIn("ops-lang-select", page)
+            self.assertNotIn("min-width: 200px", page)
+            self.assertIn(title, nl.newsletter_subject(1, label))
+            self.assertEqual(
+                nl.active_recipient_emails(1, alias),
+                [f"active.{label.lower()}@example.com", f"stored.{label.lower()}@example.com"],
+            )
+            client = ops_svr.app.test_client()
+            client.get(
+                "/setL10N",
+                query_string={"lang": alias, "page": "home"},
+                base_url=BASE,
+                follow_redirects=True,
+            )
+            shown = client.get("/privacy", base_url=BASE)
+            body = shown.get_data(as_text=True)
+            self.assertIn(privacy, body)
+            self.assertIn(f'lang="{html_lang}"', body)
+            self.assertEqual(client.get_cookie("current_lang").value, key)
+
+        _article("Deutsche Nachricht", 1, l10n="German", content="Deutscher Text")
+        chosen = ops_svr.render_main_snapshot(1, "de-DE", "http://127.0.0.1:5566")
+        self.assertIn("Deutsche Nachricht", chosen)
+        self.assertIn("Deutscher Text", chosen)
+        self.assertNotIn("English Picnic", chosen)
+        still_danish = ops_svr.render_main_snapshot(1, "da", "http://127.0.0.1:5566")
+        self.assertIn("English Picnic", still_danish)
+        self.assertNotIn("Deutsche Nachricht", still_danish)
+
+        _article(
+            "Introduction",
+            1,
+            category="About",
+            l10n="US",
+            content="English introduction body",
+        )
+        about = ops_svr.app.test_client()
+        about_page = about.get(
+            "/setL10N",
+            query_string={"lang": "FR", "page": "about"},
+            base_url=BASE,
+            follow_redirects=True,
+        )
+        about_html = about_page.get_data(as_text=True)
+        self.assertIn("English introduction body", about_html)
+        self.assertIn("À propos de l&#39;arbre familial", about_html)
+        self.assertIn('lang="fr"', about_html)
+
+        feedback = about.get(
+            "/setL10N",
+            query_string={"lang": "es-ES", "page": "feedback"},
+            base_url=BASE,
+            follow_redirects=True,
+        )
+        form = feedback.get_data(as_text=True)
+        self.assertIn('value="Spanish"', form)
+        self.assertIn(">ES<", form.replace("\n", ""))
+        self.assertIn("Escriba aquí sobre los asuntos de la familia", form)
+        self.assertIn(">Aportes<", form.replace("\n", ""))
+
+        with patch.object(ops_svr.eu, "send_verification_email", return_value=True) as verify:
+            subscribed = about.post(
+                "/subscribe",
+                data={"email": "member@example.com", "action": "subscribe"},
+                base_url=BASE,
+                follow_redirects=True,
+            )
+        self.assertIn(
+            "Revise member@example.com para el siguiente paso.",
+            subscribed.get_data(as_text=True),
+        )
+        verify.assert_called_once()
+        self.assertEqual(verify.call_args.kwargs.get("lang") or verify.call_args.args[-1], "Spanish")
+        with dbm.get_db_connection() as conn:
+            stored = conn.execute(
+                f"SELECT l10n FROM {dbm.db_tables['users']} WHERE email = ?",
+                ("member@example.com",),
+            ).fetchone()[0]
+        self.assertEqual(stored, "Spanish")
+
+        fresh = ops_svr.app.test_client()
+        home = fresh.get(
+            "/",
+            base_url=BASE,
+            headers={"Accept-Language": "pl-PL,pl;q=0.9,en;q=0.4"},
+        )
+        self.assertIn("Twój język", home.get_data(as_text=True))
+        self.assertEqual(fresh.get_cookie("current_lang").value, "Polish")
+        saved = ops_svr.app.test_client()
+        with saved.session_transaction() as sess:
+            sess["current_lang"] = "繁中"
+        stayed = saved.get(
+            "/",
+            base_url=BASE,
+            headers={"Accept-Language": "de-DE,de;q=0.9"},
+        )
+        self.assertIn("您的語言", stayed.get_data(as_text=True))
+        self.assertNotIn("Ihre Sprache", stayed.get_data(as_text=True))
+
+        english = ops_svr.render_main_snapshot(1, "US", "http://127.0.0.1:5566")
+        for label in ("繁中", "CN", "JP", "KR", "DK", "DE", "FR", "LT", "PL", "ES", "US"):
+            self.assertRegex(english, rf">\s*{label}\s*<")
+        self.assertIn("ops-sub-actions", english)
+        reset = about.get(
+            "/reset-password",
+            query_string={"email": "member@example.com", "token": "missing"},
+            base_url=BASE,
+            follow_redirects=True,
+        )
+        self.assertIn(
+            "El enlace de restablecimiento no es válido o ha caducado.",
+            reset.get_data(as_text=True),
+        )
+
     def _insert_named_family(self, family_id, name):
         with dbm.get_db_connection() as conn:
             conn.execute(
