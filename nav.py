@@ -33,8 +33,8 @@ _LINKS = (
     ("pages/10_newsletter.py", ("newsletter",), "Newsletter", "📰", _ADMINS),
     ("pages/8_caseMgmt.py", ("case_mgmt",), "Case Management", "📋", _ADMINS),
     ("pages/9_birthday.py", ("birthday",), "Birthday", "🎂", _ADMINS),
-    ("pages/6_show_3G.py", ("MENU_QUERY_TBL_BY_3GEN",), "Show 3 Generations", "👥", _ALL),
-    ("pages/7_show_related.py", ("relation",), "Relation", "👨‍👩‍👧‍👦", _ALL),
+    ("pages/6_show_3G.py", ("3GEN", "visualization"), "Show 3 Generations", "👥", _ALL),
+    ("pages/7_show_related.py", ("relation", "visualization"), "Relation", "👨‍👩‍👧‍👦", _ALL),
     ("pages/3_csv_editor.py", ("csv_editor",), "CSV", "🔧", _ALL),
     ("pages/4_json_editor.py", ("json_editor",), "JSON", "🪛", _ALL),
 )

@@ -51,13 +51,13 @@ class CatalogTests(unittest.TestCase):
             data = json.loads((ROOT / name).read_text(encoding="utf-8"))
             missing = sorted(set(us) - set(data))
             self.assertEqual(missing, [], name)
-        self.assertIn("MENU_QUERY_TBL_BY_3GEN", us)
+        self.assertIn("3GEN", us)
         self.assertIn("DB", us)
         self.assertNotIn("personal_sign_in", us)
         self.assertNotIn("MAIN_TITLE", us)
         spanish = json.loads((ROOT / "L10N_ES.json").read_text(encoding="utf-8"))
         self.assertIn("Editor", spanish["csv_editor"])
-        self.assertIn("MENU_QUERY_TBL_BY_3GEN", spanish)
+        self.assertIn("3GEN", spanish)
 
 
 class OpsSimplifiedChineseTests(unittest.TestCase):

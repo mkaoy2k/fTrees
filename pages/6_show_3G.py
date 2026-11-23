@@ -319,7 +319,7 @@ def main():
 
     # Main content area --- from here
         
-    st.header(f"{UI_TEXTS['family']} {UI_TEXTS['gen_order']} {UI_TEXTS['visualization']}")
+    st.header(f"{UI_TEXTS['3GEN']} {UI_TEXTS['visualization']}")
     
     # Add a form for better user experience
     with st.form("family_tree_form"):

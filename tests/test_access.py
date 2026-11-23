@@ -38,7 +38,7 @@ class RoleGateTests(unittest.TestCase):
             "case_mgmt": "Casos",
             "birthday": "Cumple",
             "relation": "Relacion",
-            "MENU_QUERY_TBL_BY_3GEN": "Tres generaciones",
+            "3GEN": "Tres generaciones",
         }
         member_pages = [item["page"] for item in nav.navigation_links(dbm.User_State["f_member"], texts)]
         self.assertIn("fTrees.py", member_pages)
