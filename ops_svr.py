@@ -22,12 +22,17 @@ Main Features:
 - All the pages are supported with multi-language support (L10N).
   Catalog keys match L10N.json: 繁中 (Traditional Chinese), 简中
   (Simplified Chinese, zh-CN, labelled CN), 日本語 (Japanese, labelled
-  JP), 한국어 (Korean, labelled KR), and US (English). CN / zh-CN,
-  JP / ja / ja-JP, and KR / ko / ko-KR in a request select those keys.
-  Stored subscriber and article languages use the same keys. A 简中
-  page with no article in a category shows that family's 繁中 article,
-  then its US article. A 日本語 or 한국어 page with no article in a
-  category shows that family's US article. 繁中 and US stay exact.
+  JP), 한국어 (Korean, labelled KR), Danish (labelled DK), German
+  (labelled DE), French (labelled FR), Lithuanian (labelled LT),
+  Polish (labelled PL), Spanish (labelled ES), and US (English).
+  CN / zh-CN, JP / ja / ja-JP, KR / ko / ko-KR, DK / da / da-DK,
+  DE / de / de-*, FR / fr / fr-*, LT / lt / lt-LT, PL / pl / pl-PL,
+  and ES / es / es-* in a request select those keys. Stored subscriber
+  and article languages use the same keys. A 简中 page with no article
+  in a category shows that family's 繁中 article, then its US article.
+  日本語, 한국어, Danish, German, French, Lithuanian, Polish, and
+  Spanish pages with no article in a category show that family's US
+  article. 繁中 and US stay exact.
 
 Production (default) — waitress, Flask debug off:
     python ops_svr.py --family_id <family_id>
@@ -68,10 +73,16 @@ import email_utils as eu
 import auth_utils as au
 import db_utils as dbm
 from funcUtils import (
+    OPS_DANISH,
     OPS_ENGLISH,
+    OPS_FRENCH,
+    OPS_GERMAN,
     OPS_JAPANESE,
     OPS_KOREAN,
+    OPS_LITHUANIAN,
+    OPS_POLISH,
     OPS_SIMPLIFIED,
+    OPS_SPANISH,
     OPS_TRADITIONAL,
     load_menu,
     load_ops_L10N,
@@ -107,14 +118,23 @@ LANG_COOKIE = "current_lang"
 LANG_COOKIE_MAX_AGE = 60 * 60 * 24 * 365
 
 # Catalog keys match L10N.json. The switcher labels 简中 as CN, 日本語 as
-# JP, and 한국어 as KR. 繁中 is Traditional Chinese. US is English.
+# JP, 한국어 as KR, Danish as DK, German as DE, French as FR,
+# Lithuanian as LT, Polish as PL, and Spanish as ES. 繁中 is Traditional
+# Chinese. US is English.
 # A 简中 page with no article in a category borrows 繁中, then US.
-# 日本語 and 한국어 borrow US only. Borrowing stays inside one family
-# and one category. 繁中 and US stay exact matches.
+# 日本語, 한국어, Danish, German, French, Lithuanian, Polish, and
+# Spanish borrow US only. Borrowing stays inside one family and one
+# category. 繁中 and US stay exact matches.
 ARTICLE_LANG_FALLBACK = {
     OPS_SIMPLIFIED: (OPS_TRADITIONAL, OPS_ENGLISH),
     OPS_JAPANESE: (OPS_ENGLISH,),
     OPS_KOREAN: (OPS_ENGLISH,),
+    OPS_DANISH: (OPS_ENGLISH,),
+    OPS_GERMAN: (OPS_ENGLISH,),
+    OPS_FRENCH: (OPS_ENGLISH,),
+    OPS_LITHUANIAN: (OPS_ENGLISH,),
+    OPS_POLISH: (OPS_ENGLISH,),
+    OPS_SPANISH: (OPS_ENGLISH,),
 }
 PAGE_TITLE_FIELDS = {
     "home": "HOME_HTML_H1",
@@ -208,10 +228,11 @@ def articles_for_language(articles, lang):
     """Articles in ``lang`` for one category of one family.
 
     ``简中`` uses Traditional Chinese when this category has no Simplified
-    article, then English. ``日本語`` and ``한국어`` use English when this
-    category has no article in that language. ``繁中`` and ``US`` return
-    only exact matches, including an empty list. Order of ``articles``
-    is preserved.
+    article, then English. ``日本語``, ``한국어``, ``Danish``, ``German``,
+    ``French``, ``Lithuanian``, ``Polish``, and ``Spanish`` use English
+    when this category has no article in that language. ``繁中`` and
+    ``US`` return only exact matches, including an empty list. Order of
+    ``articles`` is preserved.
     """
     rows = list(articles or [])
     exact = [row for row in rows if row.get("l10n") == lang]
@@ -460,7 +481,8 @@ def before_request():
     default_key, _l10n, options, _menu_all, _pages = catalog_snapshot()
     # The cookie is what a browser on plain HTTP actually sends back.
     # A saved cookie or session wins. On a first visit, Accept-Language
-    # can select 简中, 日本語, or 한국어 (and the other catalogs).
+    # can select 简中, 日本語, 한국어, Danish, German, French,
+    # Lithuanian, Polish, or Spanish (and the other catalogs).
     # bind_request_locale canonicalizes aliases to the stored key.
     lang = request.cookies.get(LANG_COOKIE) or session.get('current_lang')
     if not lang:
@@ -1013,7 +1035,11 @@ def set_l10n():
     Set up language localization (L10N) routing
     """
     # Get language and page from URL parameters.
-    # CN / zh-CN mean 简中. JP / ja / ja-JP mean 日本語. KR / ko / ko-KR mean 한국어.
+    # CN / zh-CN mean 简中. JP / ja / ja-JP mean 日本語.
+    # KR / ko / ko-KR mean 한국어. DK / da / da-DK mean Danish.
+    # DE / de / de-* mean German. FR / fr / fr-* mean French.
+    # LT / lt / lt-LT mean Lithuanian. PL / pl / pl-PL mean Polish.
+    # ES / es / es-* mean Spanish.
     lang = normalize_ops_lang(request.args.get('lang'), g_L10N_options)
     page = request.args.get('page', 'home')
 

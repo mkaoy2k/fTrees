@@ -172,16 +172,30 @@ def language_index(languages, current, default="US"):
 # 繁中 is Traditional Chinese (zh-Hant). US is English.
 # 简中 is Simplified Chinese (zh-CN). The public switcher labels it CN.
 # 日本語 and 한국어 are the L10N.json keys. The switcher labels them JP and KR.
+# Danish, German, French, Lithuanian, Polish, and Spanish are the
+# L10N.json keys too. The switcher labels them DK, DE, FR, LT, PL, and ES.
 OPS_SIMPLIFIED = "简中"
 OPS_TRADITIONAL = "繁中"
 OPS_JAPANESE = "日本語"
 OPS_KOREAN = "한국어"
+OPS_DANISH = "Danish"
+OPS_GERMAN = "German"
+OPS_FRENCH = "French"
+OPS_LITHUANIAN = "Lithuanian"
+OPS_POLISH = "Polish"
+OPS_SPANISH = "Spanish"
 OPS_ENGLISH = "US"
 OPS_LANG_LABELS = {
     OPS_TRADITIONAL: OPS_TRADITIONAL,
     OPS_SIMPLIFIED: "CN",
     OPS_JAPANESE: "JP",
     OPS_KOREAN: "KR",
+    OPS_DANISH: "DK",
+    OPS_GERMAN: "DE",
+    OPS_FRENCH: "FR",
+    OPS_LITHUANIAN: "LT",
+    OPS_POLISH: "PL",
+    OPS_SPANISH: "ES",
     OPS_ENGLISH: OPS_ENGLISH,
 }
 OPS_HTML_LANG = {
@@ -189,6 +203,12 @@ OPS_HTML_LANG = {
     OPS_SIMPLIFIED: "zh-CN",
     OPS_JAPANESE: "ja",
     OPS_KOREAN: "ko",
+    OPS_DANISH: "da",
+    OPS_GERMAN: "de",
+    OPS_FRENCH: "fr",
+    OPS_LITHUANIAN: "lt",
+    OPS_POLISH: "pl",
+    OPS_SPANISH: "es",
     OPS_ENGLISH: "en",
 }
 # Request names that select a catalog. The stored code is always the key.
@@ -233,6 +253,34 @@ _OPS_LANG_ALIASES = {
     "韩文": OPS_KOREAN,
     "韓國語": OPS_KOREAN,
     "韩国语": OPS_KOREAN,
+    "dk": OPS_DANISH,
+    "da": OPS_DANISH,
+    "da-dk": OPS_DANISH,
+    "da_dk": OPS_DANISH,
+    "dansk": OPS_DANISH,
+    "de": OPS_GERMAN,
+    "de-de": OPS_GERMAN,
+    "de_de": OPS_GERMAN,
+    "deutsch": OPS_GERMAN,
+    "fr": OPS_FRENCH,
+    "fr-fr": OPS_FRENCH,
+    "fr_fr": OPS_FRENCH,
+    "francais": OPS_FRENCH,
+    "français": OPS_FRENCH,
+    "lt": OPS_LITHUANIAN,
+    "lt-lt": OPS_LITHUANIAN,
+    "lt_lt": OPS_LITHUANIAN,
+    "lietuviu": OPS_LITHUANIAN,
+    "lietuvių": OPS_LITHUANIAN,
+    "pl": OPS_POLISH,
+    "pl-pl": OPS_POLISH,
+    "pl_pl": OPS_POLISH,
+    "polski": OPS_POLISH,
+    "es": OPS_SPANISH,
+    "es-es": OPS_SPANISH,
+    "es_es": OPS_SPANISH,
+    "espanol": OPS_SPANISH,
+    "español": OPS_SPANISH,
     "en": OPS_ENGLISH,
     "en-us": OPS_ENGLISH,
     "en_us": OPS_ENGLISH,
@@ -245,7 +293,8 @@ _OPS_LANG_ALIASES = {
 def ops_lang_label(lang):
     """Visible name for an operations-server language code.
 
-    简中 is CN, 日本語 is JP, and 한국어 is KR.
+    简中 is CN, 日本語 is JP, and 한국어 is KR. Danish is DK, German is
+    DE, French is FR, Lithuanian is LT, Polish is PL, and Spanish is ES.
     """
     return OPS_LANG_LABELS.get(lang, lang)
 
@@ -279,11 +328,16 @@ def normalize_ops_lang(lang, options, default=None):
 
     Exact keys win. ``CN``, ``zh-CN``, and ``zh-Hans`` select ``简中``
     when that catalog is present. ``JP``, ``ja``, and ``ja-JP`` select
-    ``日本語``. ``KR``, ``ko``, and ``ko-KR`` select ``한국어``. Other
-    names match without case (``us`` selects ``US``). A regional tag
-    such as ``en-AU`` uses its primary language when that alias is
-    offered. Unknown names return ``default`` when that key is in
-    ``options``, otherwise None.
+    ``日本語``. ``KR``, ``ko``, and ``ko-KR`` select ``한국어``.
+    ``DK``, ``da``, and ``da-DK`` select ``Danish``. ``DE``, ``de``,
+    and ``de-DE`` select ``German``; other ``de-*`` regions do too.
+    ``FR``, ``fr``, and ``fr-*`` select ``French``. ``LT``, ``lt``,
+    and ``lt-LT`` select ``Lithuanian``. ``PL``, ``pl``, and ``pl-PL``
+    select ``Polish``. ``ES``, ``es``, and ``es-*`` select ``Spanish``.
+    Other names match without case (``us`` selects ``US``, ``german``
+    selects ``German``). A regional tag such as ``en-AU`` or ``de-AT``
+    uses its primary language when that alias is offered. Unknown names
+    return ``default`` when that key is in ``options``, otherwise None.
     """
     names = list(options or [])
     if lang in names:
@@ -344,7 +398,11 @@ def match_accept_language(header, options):
 
     Tags are tried in quality order. ``ja`` and ``ja-JP`` select
     ``日本語`` when that catalog is present. ``ko`` and ``ko-KR`` select
-    ``한국어``. A tag that names no catalog is skipped. ``*`` is ignored.
+    ``한국어``. ``da`` selects ``Danish``, ``de`` and ``de-*`` select
+    ``German``, ``fr`` and ``fr-*`` select ``French``, ``lt`` selects
+    ``Lithuanian``, ``pl`` selects ``Polish``, and ``es`` and ``es-*``
+    select ``Spanish``, when that catalog is present. A tag that names
+    no catalog is skipped. ``*`` is ignored.
     """
     names = list(options or [])
     for tag in _accept_language_tags(header):

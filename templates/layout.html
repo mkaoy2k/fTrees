@@ -180,7 +180,7 @@
                 <div class="mb-4">
                 <!-- Language from here -->
                 <h5> {{ your_language }}</h5>
-                <select class="form-select" onchange="window.location.href=this.value" style="max-width: 100%; min-width: 200px;">
+                <select class="form-select ops-lang-select" onchange="window.location.href=this.value" aria-label="{{ your_language }}">
                   {% for lang in options %}
                   <option value="{{ url_for('set_l10n', lang=lang, page=title) }}" 
                           {% if lang == current_lang %}selected{% endif %}>
@@ -196,8 +196,8 @@
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="form-group mb-2">
                       <input type="email" name="email" class="form-control mb-2" placeholder="{{ email_placeholder or 'Enter your email' }}" required>
-                      <div class="d-flex">
-                        <button type="submit" name="action" value="subscribe" class="btn btn-primary mr-2">{{ subscribe }}</button>
+                      <div class="ops-sub-actions">
+                        <button type="submit" name="action" value="subscribe" class="btn btn-primary">{{ subscribe }}</button>
                         <button type="submit" name="action" value="unsubscribe" class="btn btn-outline-secondary">{{ unsubscribe }}</button>
                       </div>
                     </div>

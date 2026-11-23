@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ zh.subject }} / {{ cn.subject }} / {{ jp.subject }} / {{ kr.subject }} / {{ en.subject }} - {{ app_name }}</title>
+    <title>{% for block in sections %}{{ block.subject }}{% if not loop.last %} / {% endif %}{% endfor %} - {{ app_name }}</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -26,84 +26,27 @@
     </style>
 </head>
 <body>
-    <div lang="zh-Hant">
-        <h2>{{ zh.heading }}</h2>
-        <p>{{ zh.intro }}</p>
+    {% for block in sections %}
+    {% if not loop.first %}<hr>{% endif %}
+    <div lang="{{ block.html_lang }}">
+        <h2>{{ block.heading }}</h2>
+        <p>{{ block.intro }}</p>
         <p><strong>{{ email }}</strong></p>
-        <p>{{ zh.action }}</p>
+        <p>{{ block.action }}</p>
         {% if admin_email %}
-        <p>{{ zh.admin_label }} <a href="mailto:{{ admin_email }}">{{ admin_email }}</a></p>
+        <p>{{ block.admin_label }} <a href="mailto:{{ admin_email }}">{{ admin_email }}</a></p>
         {% else %}
-        <p>{{ zh.admin_unknown }}</p>
+        <p>{{ block.admin_unknown }}</p>
         {% endif %}
-        <p>{{ zh.ignore }}</p>
+        <p>{{ block.ignore }}</p>
         <div class="footer">
-            <p>{{ zh.closing }}<br>{{ app_name }}</p>
+            {% if block.html_lang == "en" %}
+            <p>{{ block.closing }},<br>The {{ app_name }} Team</p>
+            {% else %}
+            <p>{{ block.closing }}<br>{{ app_name }}</p>
+            {% endif %}
         </div>
     </div>
-    <hr>
-    <div lang="zh-Hans">
-        <h2>{{ cn.heading }}</h2>
-        <p>{{ cn.intro }}</p>
-        <p><strong>{{ email }}</strong></p>
-        <p>{{ cn.action }}</p>
-        {% if admin_email %}
-        <p>{{ cn.admin_label }} <a href="mailto:{{ admin_email }}">{{ admin_email }}</a></p>
-        {% else %}
-        <p>{{ cn.admin_unknown }}</p>
-        {% endif %}
-        <p>{{ cn.ignore }}</p>
-        <div class="footer">
-            <p>{{ cn.closing }}<br>{{ app_name }}</p>
-        </div>
-    </div>
-    <hr>
-    <div lang="ja">
-        <h2>{{ jp.heading }}</h2>
-        <p>{{ jp.intro }}</p>
-        <p><strong>{{ email }}</strong></p>
-        <p>{{ jp.action }}</p>
-        {% if admin_email %}
-        <p>{{ jp.admin_label }} <a href="mailto:{{ admin_email }}">{{ admin_email }}</a></p>
-        {% else %}
-        <p>{{ jp.admin_unknown }}</p>
-        {% endif %}
-        <p>{{ jp.ignore }}</p>
-        <div class="footer">
-            <p>{{ jp.closing }}<br>{{ app_name }}</p>
-        </div>
-    </div>
-    <hr>
-    <div lang="ko">
-        <h2>{{ kr.heading }}</h2>
-        <p>{{ kr.intro }}</p>
-        <p><strong>{{ email }}</strong></p>
-        <p>{{ kr.action }}</p>
-        {% if admin_email %}
-        <p>{{ kr.admin_label }} <a href="mailto:{{ admin_email }}">{{ admin_email }}</a></p>
-        {% else %}
-        <p>{{ kr.admin_unknown }}</p>
-        {% endif %}
-        <p>{{ kr.ignore }}</p>
-        <div class="footer">
-            <p>{{ kr.closing }}<br>{{ app_name }}</p>
-        </div>
-    </div>
-    <hr>
-    <div lang="en">
-        <h2>{{ en.heading }}</h2>
-        <p>{{ en.intro }}</p>
-        <p><strong>{{ email }}</strong></p>
-        <p>{{ en.action }}</p>
-        {% if admin_email %}
-        <p>{{ en.admin_label }} <a href="mailto:{{ admin_email }}">{{ admin_email }}</a></p>
-        {% else %}
-        <p>{{ en.admin_unknown }}</p>
-        {% endif %}
-        <p>{{ en.ignore }}</p>
-        <div class="footer">
-            <p>{{ en.closing }},<br>The {{ app_name }} Team</p>
-        </div>
-    </div>
+    {% endfor %}
 </body>
 </html>

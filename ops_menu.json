@@ -3,5 +3,11 @@
     "简中": [["home", "首页"], ["faq", "常见问题"], ["about", "关于族谱"], ["feedback", "家人投稿"]],
     "日本語": [["home", "ホーム"], ["faq", "よくある質問"], ["about", "族譜について"], ["feedback", "家族の投稿"]],
     "한국어": [["home", "홈"], ["faq", "자주 묻는 질문"], ["about", "족보 소개"], ["feedback", "가족 기고"]],
+    "Danish": [["home", "Hjem"], ["faq", "FAQ"], ["about", "Om slægten"], ["feedback", "Indlæg"]],
+    "German": [["home", "Start"], ["faq", "FAQ"], ["about", "Über die Sippe"], ["feedback", "Beiträge"]],
+    "French": [["home", "Accueil"], ["faq", "FAQ"], ["about", "Le clan"], ["feedback", "Contributions"]],
+    "Lithuanian": [["home", "Pradžia"], ["faq", "DUK"], ["about", "Apie giminę"], ["feedback", "Pranešimai"]],
+    "Polish": [["home", "Start"], ["faq", "FAQ"], ["about", "O rodzie"], ["feedback", "Wpisy"]],
+    "Spanish": [["home", "Inicio"], ["faq", "FAQ"], ["about", "El clan"], ["feedback", "Aportes"]],
     "US": [["home", "Home"], ["faq", "FAQ"], ["about", "About FamilyTrees"], ["feedback", "Feedback"]]
 }

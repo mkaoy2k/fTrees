@@ -183,3 +183,113 @@ class OpsJapaneseKoreanTests(unittest.TestCase):
             fu.match_accept_language([("ko", 0.2), ("ja", 0.9)], options),
             "日本語",
         )
+
+
+# Stored keys are the Streamlit names. The switcher shows the short labels.
+_EUROPEAN = (
+    ("Danish", "ops_L10N_DK.json", "L10N_DK.json", "DK", "da", "Dit sprog", "Abonnér", "1. Oplysninger vi indsamler"),
+    ("German", "ops_L10N_DE.json", "L10N_DE.json", "DE", "de", "Ihre Sprache", "Abonnieren", "1. Welche Daten wir erheben"),
+    ("French", "ops_L10N_FR.json", "L10N_FR.json", "FR", "fr", "Votre langue", "S'abonner", "1. Informations que nous collectons"),
+    ("Lithuanian", "ops_L10N_LT.json", "L10N_LT.json", "LT", "lt", "Jūsų kalba", "Prenumeruoti", "1. Kokią informaciją renkame"),
+    ("Polish", "ops_L10N_PL.json", "L10N_PL.json", "PL", "pl", "Twój język", "Subskrybuj", "1. Jakie informacje zbieramy"),
+    ("Spanish", "ops_L10N_ES.json", "L10N_ES.json", "ES", "es", "Su idioma", "Suscribirse", "1. Información que recopilamos"),
+)
+
+
+class OpsEuropeanLanguageTests(unittest.TestCase):
+    """Danish through Spanish match L10N.json. The switcher shows DK–ES."""
+
+    def test_catalogs_share_keys_with_the_streamlit_names(self):
+        index = json.loads((ROOT / "ops_L10N.json").read_text(encoding="utf-8"))
+        streamlit = json.loads((ROOT / "L10N.json").read_text(encoding="utf-8"))
+        menu = json.loads((ROOT / "ops_menu.json").read_text(encoding="utf-8"))
+        us = json.loads((ROOT / "ops_L10N_US.json").read_text(encoding="utf-8"))
+        self.assertEqual(
+            list(index),
+            ["繁中", "简中", "日本語", "한국어", "Danish", "German", "French", "Lithuanian", "Polish", "Spanish", "US"],
+        )
+        for key, ops_file, streamlit_file, label, html_lang, your_language, subscribe, privacy in _EUROPEAN:
+            self.assertEqual(index[key], ops_file)
+            self.assertEqual(streamlit[key], streamlit_file)
+            self.assertEqual(menu[key][0][0], "home")
+            self.assertEqual(len(menu[key]), 4)
+            data = json.loads((ROOT / ops_file).read_text(encoding="utf-8"))
+            self.assertEqual(_value_shape(us), _value_shape(data))
+            self.assertEqual(data["YOUR_LANGUAGE"], your_language)
+            self.assertEqual(data["SUBSCRIBE"], subscribe)
+            self.assertEqual(data["PRIVACY_SECTIONS"][0]["heading"], privacy)
+            self.assertIn("family id", data["FAMILY_ID_HELP"])
+            self.assertIn("{email}", data["SUB_SUCCESS"])
+            self.assertIn("{app}", data["VERIFY_SUB_SUBJECT"])
+            self.assertIn("{email}", data["VERIFY_SUB_BODY"])
+            self.assertNotEqual(data["HOME_HTML_H1"], us["HOME_HTML_H1"])
+            self.assertNotIn("訂閱", json.dumps(data, ensure_ascii=False))
+            self.assertNotIn("订阅", json.dumps(data, ensure_ascii=False))
+            self.assertEqual(fu.ops_lang_label(key), label)
+            self.assertEqual(fu.ops_html_lang(key), html_lang)
+        self.assertEqual(menu["简中"][0], ["home", "首页"])
+        self.assertEqual(fu.ops_lang_label("日本語"), "JP")
+        self.assertEqual(fu.ops_lang_label("简中"), "CN")
+
+    def test_aliases_select_the_stored_keys(self):
+        options = [
+            "繁中", "简中", "日本語", "한국어",
+            "Danish", "German", "French", "Lithuanian", "Polish", "Spanish", "US",
+        ]
+        self.assertEqual(fu.normalize_ops_lang("DK", options), "Danish")
+        self.assertEqual(fu.normalize_ops_lang("da", options), "Danish")
+        self.assertEqual(fu.normalize_ops_lang("da-DK", options), "Danish")
+        self.assertEqual(fu.normalize_ops_lang("Danish", options), "Danish")
+        self.assertEqual(fu.normalize_ops_lang("dansk", options), "Danish")
+        self.assertEqual(fu.normalize_ops_lang("DE", options), "German")
+        self.assertEqual(fu.normalize_ops_lang("de", options), "German")
+        self.assertEqual(fu.normalize_ops_lang("de-DE", options), "German")
+        self.assertEqual(fu.normalize_ops_lang("de-AT", options), "German")
+        self.assertEqual(fu.normalize_ops_lang("de-CH", options), "German")
+        self.assertEqual(fu.normalize_ops_lang("deutsch", options), "German")
+        self.assertEqual(fu.normalize_ops_lang("german", options), "German")
+        self.assertEqual(fu.normalize_ops_lang("FR", options), "French")
+        self.assertEqual(fu.normalize_ops_lang("fr", options), "French")
+        self.assertEqual(fu.normalize_ops_lang("fr-FR", options), "French")
+        self.assertEqual(fu.normalize_ops_lang("fr-CA", options), "French")
+        self.assertEqual(fu.normalize_ops_lang("français", options), "French")
+        self.assertEqual(fu.normalize_ops_lang("LT", options), "Lithuanian")
+        self.assertEqual(fu.normalize_ops_lang("lt", options), "Lithuanian")
+        self.assertEqual(fu.normalize_ops_lang("lt-LT", options), "Lithuanian")
+        self.assertEqual(fu.normalize_ops_lang("PL", options), "Polish")
+        self.assertEqual(fu.normalize_ops_lang("pl", options), "Polish")
+        self.assertEqual(fu.normalize_ops_lang("pl-PL", options), "Polish")
+        self.assertEqual(fu.normalize_ops_lang("ES", options), "Spanish")
+        self.assertEqual(fu.normalize_ops_lang("es", options), "Spanish")
+        self.assertEqual(fu.normalize_ops_lang("es-ES", options), "Spanish")
+        self.assertEqual(fu.normalize_ops_lang("es-MX", options), "Spanish")
+        self.assertEqual(fu.normalize_ops_lang("es-419", options), "Spanish")
+        self.assertEqual(fu.normalize_ops_lang("español", options), "Spanish")
+        self.assertEqual(fu.normalize_ops_lang("spanish", options), "Spanish")
+        self.assertEqual(fu.normalize_ops_lang("CN", options), "简中")
+        self.assertEqual(fu.normalize_ops_lang("ja-JP", options), "日本語")
+        self.assertEqual(fu.normalize_ops_lang("ko", options), "한국어")
+        self.assertEqual(fu.normalize_ops_lang("us", options), "US")
+        self.assertIsNone(fu.normalize_ops_lang("da", ["US", "繁中", "简中"]))
+        self.assertIsNone(fu.normalize_ops_lang("de-AT", ["US", "日本語"]))
+        self.assertIsNone(fu.normalize_ops_lang("pt-BR", options))
+        self.assertIsNone(fu.normalize_ops_lang("ca", options))
+
+    def test_accept_language_maps_the_new_codes(self):
+        options = [
+            "繁中", "简中", "日本語", "한국어",
+            "Danish", "German", "French", "Lithuanian", "Polish", "Spanish", "US",
+        ]
+        self.assertEqual(fu.match_accept_language("da-DK,da;q=0.9,en;q=0.8", options), "Danish")
+        self.assertEqual(fu.match_accept_language("de-AT,de;q=0.8,en;q=0.5", options), "German")
+        self.assertEqual(fu.match_accept_language("fr-CA,fr;q=0.9,en;q=0.4", options), "French")
+        self.assertEqual(fu.match_accept_language("lt-LT,lt;q=0.8,en;q=0.3", options), "Lithuanian")
+        self.assertEqual(fu.match_accept_language("pl-PL,pl;q=0.8,en;q=0.2", options), "Polish")
+        self.assertEqual(fu.match_accept_language("es-MX,es;q=0.9,en;q=0.5", options), "Spanish")
+        self.assertEqual(fu.match_accept_language("es-419,es;q=0.8", options), "Spanish")
+        self.assertEqual(fu.match_accept_language("fr,ja;q=0.5", options), "French")
+        self.assertEqual(fu.match_accept_language("pt-BR,en;q=0.5", options), "US")
+        self.assertEqual(fu.match_accept_language("da;q=0, en;q=0.8", options), "US")
+        older = ["繁中", "简中", "日本語", "한국어", "US"]
+        self.assertEqual(fu.match_accept_language("fr,ja;q=0.5", older), "日本語")
+        self.assertIsNone(fu.match_accept_language("fr,de;q=0.5", older))
