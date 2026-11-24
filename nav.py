@@ -28,7 +28,7 @@ _PLATFORM = (dbm.User_State["p_admin"],)
 _LINKS = (
     ("fTrees.py", ("home",), "Home", "🏠", _ALL),
     ("pages/1_usrMgmt.py", ("user", "management"), "User Management", "👤", _PLATFORM),
-    ("pages/2_famMgmt.py", ("family", "management"), "Family Management", "🌲", _ADMINS),
+    ("pages/2_famMgmt.py", ("family_tree", "management"), "Family Tree Management", "🌲", _ADMINS),
     ("pages/5_artMgmt.py", ("article","management"), "Article Management", "📰", _ADMINS),
     ("pages/10_newsletter.py", ("newsletter",), "Newsletter", "📰", _ADMINS),
     ("pages/8_caseMgmt.py", ("case_mgmt",), "Case Management", "📋", _ADMINS),

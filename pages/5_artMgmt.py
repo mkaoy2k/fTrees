@@ -124,7 +124,7 @@ def main():
     own_family_id = cu.current_family_id()
     is_platform = st.session_state.get("user_state") == dbm.User_State["p_admin"]
     ops_svr = os.getenv("OPS_SVR", "http://127.0.0.1:5566")
-    st.header(f"{UI_TEXTS['ARTICLE']} {UI_TEXTS['TABLE']} {UI_TEXTS['MANAGEMENT']}")
+    st.header(f"{UI_TEXTS['ARTICLE']} {UI_TEXTS['MANAGEMENT']}")
     st.markdown(f"### Current family_id: {own_family_id}")
 
     filter_all = False

@@ -749,12 +749,12 @@ class NewsletterFlowTests(unittest.TestCase):
         """DK–ES select the Streamlit keys. A category with none of them borrows US."""
         self._seed_people()
         cases = (
-            ("Danish", "da-DK", "da", "DK", "Dit sprog", "Abonnér", "1. Oplysninger vi indsamler", "Tidsskrift for slægten Bohai Ouwang Gao"),
-            ("German", "de-AT", "de", "DE", "Ihre Sprache", "Abonnieren", "1. Welche Daten wir erheben", "Journal der Sippe Bohai Ouwang Gao"),
-            ("French", "fr-CA", "fr", "FR", "Votre langue", "S'abonner", "1. Informations que nous collectons", "Journal du clan Bohai Ouwang Gao"),
-            ("Lithuanian", "lt-LT", "lt", "LT", "Jūsų kalba", "Prenumeruoti", "1. Kokią informaciją renkame", "Bohai Ouwang Gao giminės žurnalas"),
-            ("Polish", "pl-PL", "pl", "PL", "Twój język", "Subskrybuj", "1. Jakie informacje zbieramy", "Dziennik rodu Bohai Ouwang Gao"),
-            ("Spanish", "es-MX", "es", "ES", "Su idioma", "Suscribirse", "1. Información que recopilamos", "Revista del clan Bohai Ouwang Gao"),
+            ("Danish", "da-DK", "da", "DK", "Dit sprog", "Abonnér", "1. Oplysninger vi indsamler", "Tidsskrift for slægten Bohai The Owon Kaos"),
+            ("German", "de-AT", "de", "DE", "Ihre Sprache", "Abonnieren", "1. Welche Daten wir erheben", "Journal der Sippe Bohai The Owon Kaos"),
+            ("French", "fr-CA", "fr", "FR", "Votre langue", "S'abonner", "1. Informations que nous collectons", "Journal du clan Bohai The Owon Kaos"),
+            ("Lithuanian", "lt-LT", "lt", "LT", "Jūsų kalba", "Prenumeruoti", "1. Kokią informaciją renkame", "Bohai The Owon Kaos giminės žurnalas"),
+            ("Polish", "pl-PL", "pl", "PL", "Twój język", "Subskrybuj", "1. Jakie informacje zbieramy", "Dziennik rodu Bohai The Owon Kaos"),
+            ("Spanish", "es-MX", "es", "ES", "Su idioma", "Suscribirse", "1. Información que recopilamos", "Revista del clan Bohai The Owon Kaos"),
         )
         for key, _alias, _html, label, _language, _subscribe, _privacy, _title in cases:
             _insert_user(f"active.{label.lower()}@example.com", 1, is_active=dbm.Subscriber_State["active"], l10n=key)

@@ -6,6 +6,13 @@ or ``uv sync --extra qt``.
 
 The table filter and every new or saved row stay on the family id passed
 with ``--family-id``.
+
+Features:
+- View and edit articles for a specific family
+- Add new article records with default values
+- Delete selected article records with confirmation
+- Save changes to the database
+- Refresh data from the database
 """
 import argparse
 import datetime
@@ -103,10 +110,13 @@ def show_window(db_path, table_name, family_id):
             self.save_button.setEnabled(False)
             add_button = QPushButton("Add Record")
             add_button.clicked.connect(self.insert_record)
+            delete_button = QPushButton("Delete")
+            delete_button.clicked.connect(self.delete_record)
             refresh_button = QPushButton("Refresh")
             refresh_button.clicked.connect(self.refresh_data)
             buttons.addWidget(self.save_button)
             buttons.addWidget(add_button)
+            buttons.addWidget(delete_button)
             buttons.addWidget(refresh_button)
             buttons.addStretch()
             layout.addLayout(buttons)
@@ -193,6 +203,23 @@ def show_window(db_path, table_name, family_id):
             self.tableView.setCurrentIndex(self.model.index(row, title_column))
             self.tableView.edit(self.model.index(row, title_column))
             self.save_button.setEnabled(True)
+
+        def delete_record(self):
+            selected = self.tableView.selectionModel().selectedRows()
+            if not selected:
+                QMessageBox.information(self, "No Selection", "Please select a row to delete.")
+                return
+            reply = QMessageBox.question(
+                self,
+                "Confirm Delete",
+                f"Delete {len(selected)} selected row(s)?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No,
+            )
+            if reply == QMessageBox.Yes:
+                for index in sorted(selected, reverse=True):
+                    self.model.removeRow(index.row())
+                self.save_button.setEnabled(True)
 
         def save_changes(self):
             if not self.model.isDirty():

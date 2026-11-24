@@ -72,6 +72,11 @@ The application is licensed under the MIT License. See `LICENSE`.
 
    ```bash
    mkdir -p data
+   
+   # Copy the template database with core articles table
+   cp family_template.db data/family.db
+
+   # Create the admin account
    python genesis.py
    ```
 
